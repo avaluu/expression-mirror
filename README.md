@@ -14,7 +14,11 @@
 - **三款主题**：暗夜 / 明亮 / 暖棕
 - **日记导出**：JSON / Markdown 双格式
 
-## 🚀 运行方式
+## 🌐 在线使用
+
+**直接打开：[avaluu.github.io/expression-mirror](https://avaluu.github.io/expression-mirror/)**
+
+## 🚀 本地运行
 
 ```bash
 git clone https://github.com/avaluu/expression-mirror.git
