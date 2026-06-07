@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>表情镜 — 读书表情陪伴工具</title>
+<title>表情镜 v2.0 — 动作触发版</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -11,6 +11,7 @@
   --text:#e0e0e0;--text-muted:#888;
   --accent:#6366f1;--accent-glow:rgba(99,102,241,.35);
   --danger:#ef4444;
+  --frown-color:#f59e0b;--smile-color:#fbbf24;
   --border:rgba(255,255,255,.06);
   --radius:16px;--radius-sm:10px;
   --shadow:0 8px 40px rgba(0,0,0,.5);
@@ -40,21 +41,28 @@ body{
 #particle-canvas{position:fixed;inset:0;pointer-events:none;z-index:5}
 
 /* ============================================================
-   Main Stage — centered mirror only
+   Main Stage
    ============================================================ */
 #main-stage{
   flex:1;display:flex;align-items:center;justify-content:center;
-  padding:20px;position:relative;z-index:10;
+  padding:20px;position:relative;z-index:10;overflow-y:auto;
+}
+
+#stage-inner{
+  display:flex;flex-direction:column;align-items:center;
+  gap:12px;width:100%;max-width:420px;
 }
 
 #mirror-ring{
-  width:280px;height:280px;border-radius:50%;
+  width:240px;height:240px;border-radius:50%;
   border:3px solid var(--border);background:#000;
   display:flex;align-items:center;justify-content:center;
-  position:relative;overflow:hidden;
+  position:relative;overflow:hidden;flex-shrink:0;
   box-shadow:var(--shadow);
-  transition:background var(--transition);
+  transition:background var(--transition),box-shadow .3s;
 }
+#mirror-ring.flash-frown{box-shadow:0 0 40px rgba(245,158,11,.6),var(--shadow)}
+#mirror-ring.flash-smile{box-shadow:0 0 40px rgba(251,191,36,.6),var(--shadow)}
 
 #mirror-ring video{
   position:absolute;inset:0;width:100%;height:100%;
@@ -64,7 +72,7 @@ body{
 
 /* Emoji avatar (shown when camera off) */
 #avatar-face{
-  font-size:130px;line-height:1;z-index:2;
+  font-size:100px;line-height:1;z-index:2;
   pointer-events:none;display:none;
   transition:transform .15s;
 }
@@ -74,17 +82,17 @@ body{
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.3)}100%{transform:scale(1)}}
 
 #mirror-ring .ring-label{
-  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-  font-size:12px;color:rgba(255,255,255,.55);
+  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  font-size:11px;color:rgba(255,255,255,.55);
   text-shadow:0 1px 3px rgba(0,0,0,.8);
   pointer-events:none;z-index:2;
 }
 
 #mirror-ring .cam-btn{
-  position:absolute;bottom:10px;right:14px;
-  width:34px;height:34px;border-radius:50%;
+  position:absolute;bottom:8px;right:10px;
+  width:30px;height:30px;border-radius:50%;
   border:2px solid rgba(255,255,255,.25);
-  background:rgba(0,0,0,.45);color:#fff;font-size:15px;
+  background:rgba(0,0,0,.45);color:#fff;font-size:14px;
   cursor:pointer;z-index:5;
   display:flex;align-items:center;justify-content:center;
   transition:all var(--transition);
@@ -92,31 +100,60 @@ body{
 }
 #mirror-ring .cam-btn:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.5)}
 
-/* Emotion info below mirror */
-#emotion-info{text-align:center;margin-top:14px}
-#emotion-info .main-label{font-size:22px;font-weight:700;letter-spacing:1px;transition:color .3s}
-#emotion-info .sub-label{font-size:13px;color:var(--text-muted);margin-top:4px}
+/* Action info below mirror */
+#action-info{text-align:center}
+#action-info .main-label{font-size:20px;font-weight:700;letter-spacing:1px;transition:color .3s}
+#action-info .sub-label{font-size:12px;color:var(--text-muted);margin-top:3px}
 
 /* ============================================================
-   Calibration Overlay
+   Manual Action Buttons
    ============================================================ */
-#cal-overlay{
-  position:absolute;inset:0;z-index:10;
-  background:rgba(0,0,0,.88);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:12px;border-radius:50%;
-  opacity:0;pointer-events:none;transition:opacity .4s;
+#manual-actions{
+  display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
 }
-#cal-overlay.show{opacity:1;pointer-events:auto}
-#cal-overlay .spinner{
-  width:36px;height:36px;border:3px solid rgba(255,255,255,.1);
-  border-top-color:var(--accent);border-radius:50%;
-  animation:spin .8s linear infinite;
+.act-btn{
+  padding:8px 16px;border-radius:20px;border:1px solid var(--border);
+  background:var(--bg-panel);color:var(--text);
+  font-size:13px;font-weight:500;cursor:pointer;
+  font-family:var(--font-ui);
+  transition:all var(--transition);
+  white-space:nowrap;
 }
-@keyframes spin{to{transform:rotate(360deg)}}
-#cal-overlay .text{font-size:14px;font-weight:500;color:#fff}
-#cal-overlay .bar{width:160px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
-#cal-overlay .bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .1s}
+.act-btn:hover{transform:translateY(-1px)}
+.act-btn:active{transform:scale(.96)}
+.act-btn.frown:hover{background:var(--frown-color);color:#000;border-color:var(--frown-color)}
+.act-btn.smile:hover{background:var(--smile-color);color:#000;border-color:var(--smile-color)}
+.act-btn.note:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Inline note input */
+#note-input-row{
+  display:none;width:100%;gap:6px;
+}
+#note-input-row.show{display:flex}
+#note-input-row input{
+  flex:1;padding:8px 14px;border-radius:18px;
+  border:1px solid var(--accent);background:var(--bg);
+  color:var(--text);font-size:13px;font-family:var(--font-ui);
+  outline:none;
+}
+#note-input-row button{
+  padding:8px 16px;border-radius:18px;border:none;
+  background:var(--accent);color:#fff;font-size:13px;
+  cursor:pointer;font-family:var(--font-ui);font-weight:500;
+}
+
+/* ============================================================
+   Timeline items (shared: used in diary detail modal)
+   ============================================================ */
+.tl-item{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 0;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.tl-item:last-child{border-bottom:none}
+.tl-item .tl-time{color:var(--text-muted);font-size:11px;white-space:nowrap;min-width:36px}
+.tl-item .tl-icon{font-size:16px;min-width:22px;text-align:center}
+.tl-item .tl-text{flex:1}
 
 /* ============================================================
    Status Bar
@@ -125,16 +162,12 @@ body{
   height:54px;display:flex;align-items:center;
   padding:0 18px;gap:14px;
   background:var(--bg-panel);border-top:1px solid var(--border);
-  z-index:20;transition:background var(--transition);
+  z-index:20;transition:background var(--transition);flex-shrink:0;
 }
-#status-bar .emo-badge{
-  display:flex;align-items:center;gap:5px;
-  font-size:13px;font-weight:500;
-  padding:5px 12px;border-radius:18px;
-  background:rgba(255,255,255,.04);transition:all .5s;
+#status-bar .stat{
+  font-size:12px;color:var(--text-muted);
+  display:flex;align-items:center;gap:4px;
 }
-#status-bar .emo-badge .emo{font-size:18px}
-#status-bar .stat{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:3px}
 #status-bar .spacer{flex:1}
 
 #btn-read{
@@ -184,6 +217,7 @@ body{
 .set-item label{display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .set-item input[type=range]{width:100%;accent-color:var(--accent)}
 .set-item .range-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)}
+.set-item .range-val{text-align:center;font-size:11px;color:var(--accent);margin-top:2px}
 .theme-row{display:flex;gap:7px}
 .theme-opt{flex:1;padding:9px 4px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;text-align:center;font-size:11px;transition:all var(--transition)}
 .theme-opt:hover{border-color:var(--accent)}
@@ -207,9 +241,8 @@ body{
 .modal-back.open{opacity:1;pointer-events:auto}
 .modal-box{background:var(--bg-panel);border-radius:var(--radius);width:480px;max-width:90vw;max-height:82vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow);border:1px solid var(--border)}
 .modal-box h4{font-size:15px;margin-bottom:14px}
-.modal-box .emo-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
-.modal-box .emo-row .track{flex:1;height:15px;background:var(--bg);border-radius:8px;overflow:hidden}
-.modal-box .emo-row .fill{height:100%;border-radius:8px}
+.modal-box .tl-mini{max-height:200px;overflow-y:auto;margin-bottom:12px}
+.modal-box .tl-mini .tl-item{font-size:11px;padding:3px 0}
 .modal-box .m-btns{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap}
 .modal-box .m-btns button{padding:7px 16px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;font-size:12px;transition:all var(--transition)}
 .modal-box .m-btns button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -245,10 +278,11 @@ body{
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
 
 @media(max-width:768px){
-  #mirror-ring{width:200px;height:200px}
-  #avatar-face{font-size:90px}
+  #mirror-ring{width:180px;height:180px}
+  #avatar-face{font-size:72px}
   #status-bar{padding:0 10px;gap:8px;height:46px}
   .panel{width:100vw;max-width:100vw}
+  #stage-inner{gap:8px}
 }
 </style>
 </head>
@@ -257,30 +291,42 @@ body{
 <canvas id="particle-canvas"></canvas>
 
 <div id="main-stage">
-  <div style="display:flex;flex-direction:column;align-items:center;">
+  <div id="stage-inner">
+    <!-- Mirror -->
     <div id="mirror-ring">
       <video id="video" autoplay playsinline></video>
       <span id="avatar-face"></span>
       <span class="ring-label" id="ring-label">你</span>
       <button class="cam-btn" id="cam-btn" title="切换摄像头/表情">📷</button>
+    </div>
 
-      <div id="cal-overlay">
-        <div class="spinner" id="cal-spinner"></div>
-        <div class="text" id="cal-text">正在下载模型…</div>
-        <div class="bar"><div class="bar-fill" id="cal-bar-fill"></div></div>
-      </div>
+    <!-- Action info -->
+    <div id="action-info">
+      <div class="main-label" id="action-label" style="color:#60a5fa">等待开始</div>
+      <div class="sub-label" id="action-sub">模型加载完成后点击开始阅读</div>
     </div>
-    <div id="emotion-info">
-      <div class="main-label" id="emotion-label" style="color:#60a5fa">等待开始</div>
-      <div class="sub-label" id="emotion-sub">校准完成后点击开始阅读</div>
+
+    <!-- Manual action buttons -->
+    <div id="manual-actions">
+      <button class="act-btn frown" id="btn-manual-frown">😤 好难</button>
+      <button class="act-btn smile" id="btn-manual-smile">🙂 懂了</button>
+      <button class="act-btn note" id="btn-manual-note">📝 写一句话</button>
     </div>
+
+    <!-- Inline note input -->
+    <div id="note-input-row">
+      <input type="text" id="note-input" placeholder="写一句话…" maxlength="120">
+      <button id="note-confirm">确认</button>
+    </div>
+
   </div>
 </div>
 
 <div id="bubble-container"></div>
 
 <div id="status-bar">
-  <div class="emo-badge" id="emo-badge"><span class="emo">😐</span><span id="status-emotion">中性</span></div>
+  <span class="stat">😤 <span id="frown-count">0</span></span>
+  <span class="stat">🙂 <span id="smile-count">0</span></span>
   <span class="stat">⏱ <span id="timer">00:00</span></span>
   <span class="spacer"></span>
   <button id="btn-read" class="start">▶ 开始阅读</button>
@@ -293,9 +339,20 @@ body{
   <div class="panel-head"><h4>⚙️ 设置</h4><button class="close" id="close-settings">✕</button></div>
   <div class="panel-body">
     <div class="set-item">
-      <label>表情识别灵敏度</label>
-      <input type="range" id="s-sensitivity" min="1" max="10" value="5">
-      <div class="range-ends"><span>稳定</span><span>灵敏</span></div>
+      <label>皱眉灵敏度</label>
+      <input type="range" id="s-frown-sens" min="0" max="100" value="50">
+      <div class="range-ends"><span>难触发</span><span>易触发</span></div>
+    </div>
+    <div class="set-item">
+      <label>微笑灵敏度</label>
+      <input type="range" id="s-smile-sens" min="0" max="100" value="50">
+      <div class="range-ends"><span>难触发</span><span>易触发</span></div>
+    </div>
+    <div class="set-item">
+      <label>防抖间隔</label>
+      <input type="range" id="s-debounce" min="10" max="100" value="30">
+      <div class="range-ends"><span>1秒</span><span>10秒</span></div>
+      <div class="range-val" id="debounce-val">3秒</div>
     </div>
     <div class="set-item">
       <label>视觉反馈强度</label>
@@ -332,7 +389,7 @@ body{
 /* ============================================================
    CONFIG
    ============================================================ */
-const CFG={fps:10,camW:640,camH:480,baselineFrames:15,maxParticles:200};
+const CFG={fps:12,camW:640,camH:480,maxParticles:200};
 
 /* ============================================================
    DOM
@@ -341,11 +398,11 @@ const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const D={
   mirrorRing:$('#mirror-ring'),video:$('#video'),
   avatarFace:$('#avatar-face'),ringLabel:$('#ring-label'),
-  camBtn:$('#cam-btn'),emotionLabel:$('#emotion-label'),emotionSub:$('#emotion-sub'),
-  statusEmo:$('#emo-badge .emo'),statusLabel:$('#status-emotion'),
-  emoBadge:$('#emo-badge'),timer:$('#timer'),
-  btnRead:$('#btn-read'),calOverlay:$('#cal-overlay'),
-  calSpinner:$('#cal-spinner'),calText:$('#cal-text'),calBarFill:$('#cal-bar-fill'),
+  camBtn:$('#cam-btn'),actionLabel:$('#action-label'),actionSub:$('#action-sub'),
+  manualActions:$('#manual-actions'),noteInputRow:$('#note-input-row'),
+  noteInput:$('#note-input'),noteConfirm:$('#note-confirm'),
+  frownCount:$('#frown-count'),smileCount:$('#smile-count'),timer:$('#timer'),
+  btnRead:$('#btn-read'),
   settingsPanel:$('#settings-panel'),settingsBack:$('#settings-back'),
   diaryPanel:$('#diary-panel'),diaryBack:$('#diary-back'),
   diaryScroll:$('#diary-scroll'),modalBack:$('#modal-back'),modalBox:$('#modal-box'),
@@ -357,53 +414,57 @@ const D={
    ============================================================ */
 const S={
   isReading:false,sessionStart:null,sessionSeconds:0,timerInt:null,
-  emotionHistory:[],baseline:null,
-  cur:{emotion:'neutral',intensity:0,confidence:0},
+  timeline:[],           // { time, action: 'frown'|'smile'|'note', text? }
+  lastTrigger:{frown:0,smile:0}, // debounce timestamps
+  curAction:null,        // 'frown' | 'smile' | null
   fl:null,cameraStream:null,
-  calibrated:false,calibrating:false,visible:true,
+  visible:true,
   particles:[],animId:null,
-  settings:{sensitivity:5,intensity:6,theme:'dark'},
+  settings:{frownSens:50,smileSens:50,debounceMs:3000,intensity:6,theme:'dark'},
   cameraOn:true,pipMode:null,pipWindow:null,
-  // Temporal tracking for "focused" detection
-  recentExpr:[],
+  // Temporal smoothing: consecutive frame counters
+  recentFrown:0,recentSmile:0,
+  // Fixed baseline: computed once at session start from neutral frames
+  // { mean, std } for each metric
+  neutralBaseline:null,
+  // Quick calibration at reading start
+  calibrating:false,
+  _calSamples:[],        // frames collected during calibration
+  _calTarget:36,         // ~3 seconds at 12fps
 };
 
 /* ============================================================
-   7 EMOTIONS — expanded detection
+   ACTION DEFINITIONS
    ============================================================ */
-const EM={
-  neutral:  {emoji:'😐',label:'中性',  color:'#60a5fa',pc:['#60a5fa','#93c5fd','#a5b4fc']},
-  frowning: {emoji:'😠',label:'皱眉',  color:'#f59e0b',pc:['#f59e0b','#ef4444','#f97316']},
-  smiling:  {emoji:'😊',label:'微笑',  color:'#fbbf24',pc:['#fbbf24','#fcd34d','#fde68a']},
-  confused: {emoji:'🤔',label:'困惑',  color:'#a78bfa',pc:['#8b5cf6','#a78bfa','#c4b5fd']},
-  surprised:{emoji:'😮',label:'惊讶',  color:'#fff',   pc:['#fff','#e0e7ff','#c7d2fe']},
-  focused:  {emoji:'🧐',label:'专注',  color:'#34d399',pc:['#34d399','#6ee7b7','#a7f3d0']},
-  sad:      {emoji:'😢',label:'难过',  color:'#818cf8',pc:['#818cf8','#a5b4fc','#c7d2fe']},
+const ACT={
+  frown:{emoji:'😤',label:'皱眉',color:'#f59e0b',pc:['#f59e0b','#ef4444','#f97316']},
+  smile:{emoji:'🙂',label:'微笑',color:'#fbbf24',pc:['#fbbf24','#fcd34d','#fde68a']},
+  note: {emoji:'📝',label:'备注',color:'#a78bfa',pc:['#a78bfa','#c4b5fd']},
 };
-const EKEYS=Object.keys(EM);
 
 const PC={
-  neutral:  {sp:.3,sz:4,li:140,rate:2, dr:.2},
-  frowning: {sp:.5,sz:5,li:100,rate:5, dr:.1},
-  smiling:  {sp:.7,sz:3,li:70, rate:8, dr:.4},
-  confused: {sp:.2,sz:6,li:170,rate:3, dr:.5},
-  surprised:{sp:2, sz:7,li:35, rate:12,dr:.6},
-  focused:  {sp:.15,sz:3,li:200,rate:1, dr:.3},
-  sad:      {sp:.3,sz:4,li:160,rate:2, dr:.15},
+  frown:{sp:.5,sz:5,li:100,rate:8, dr:.1},
+  smile:{sp:.7,sz:3,li:70, rate:10,dr:.4},
+  note: {sp:.3,sz:4,li:100,rate:4, dr:.2},
 };
 
 /* ============================================================
    PARTICLE SYSTEM
    ============================================================ */
 class Particle{
-  constructor(x,y,em){const c=PC[em],cl=EM[em].pc;this.x=x;this.y=y;this.vx=(Math.random()-.5)*c.sp*2;this.vy=(Math.random()-.5)*c.sp*2-c.sp*.5;this.l=c.li*(.7+Math.random()*.6);this.ml=this.l;this.s=c.sz*(.5+Math.random());this.co=cl[Math.floor(Math.random()*cl.length)];this.dr=c.dr}
+  constructor(x,y,action){
+    const c=PC[action]||PC.frown,cl=(ACT[action]||ACT.frown).pc;
+    this.x=x;this.y=y;this.vx=(Math.random()-.5)*c.sp*2;this.vy=(Math.random()-.5)*c.sp*2-c.sp*.5;
+    this.l=c.li*(.7+Math.random()*.6);this.ml=this.l;this.s=c.sz*(.5+Math.random());
+    this.co=cl[Math.floor(Math.random()*cl.length)];this.dr=c.dr;
+  }
   up(){this.x+=this.vx;this.y+=this.vy;this.vx+=(Math.random()-.5)*this.dr;this.vy+=(Math.random()-.5)*this.dr;this.vx*=.995;this.vy*=.995;this.l--;return this.l>0}
   dr(ctx){const a=Math.max(0,this.l/this.ml),s=this.s*(.5+.5*a);ctx.save();ctx.globalAlpha=a*.6;ctx.fillStyle=this.co;ctx.shadowColor=this.co;ctx.shadowBlur=s*2;ctx.beginPath();ctx.arc(this.x,this.y,s,0,Math.PI*2);ctx.fill();ctx.restore()}
 }
-function spawnParticles(em,intensity){
-  const f=S.settings.intensity/10,c=PC[em],n=Math.floor(c.rate*intensity*f);
+function spawnParticles(action){
+  const f=S.settings.intensity/10,c=PC[action]||PC.frown,n=Math.floor(c.rate*f);
   const r=D.mirrorRing.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
-  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,d=120+Math.random()*200;S.particles.push(new Particle(cx+Math.cos(a)*d,cy+Math.sin(a)*d,em))}
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,d=120+Math.random()*200;S.particles.push(new Particle(cx+Math.cos(a)*d,cy+Math.sin(a)*d,action))}
   while(S.particles.length>CFG.maxParticles)S.particles.shift();
 }
 function particleLoop(){
@@ -418,7 +479,16 @@ function setupCanvas(){
 }
 
 /* ============================================================
-   PICTURE-IN-PICTURE — Canvas PiP 保活摄像头（Safari/Chrome/Firefox 通用）
+   MIRROR FLASH
+   ============================================================ */
+function flashMirror(action){
+  const cls=action==='smile'?'flash-smile':'flash-frown';
+  D.mirrorRing.classList.add(cls);
+  setTimeout(()=>D.mirrorRing.classList.remove(cls),350);
+}
+
+/* ============================================================
+   PICTURE-IN-PICTURE
    ============================================================ */
 S.pipVideo=null;S.pipCanvas=null;S.pipCtx=null;S.pipEmoji='😐';S.pipLabel='';S.pipColor='#60a5fa';
 
@@ -435,7 +505,6 @@ function ensurePiPElements(){
   S.pipVideo.play();
   document.body.appendChild(S.pipCanvas);
   document.body.appendChild(S.pipVideo);
-  // 隐藏：用 CSS 控制，不能 display:none 否则 PiP 失效
   S.pipCanvas.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
   S.pipVideo.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
   S.pipVideo.addEventListener('leavepictureinpicture',()=>{
@@ -447,25 +516,20 @@ function drawPiPFrame(){
   if(!S.pipCtx)return;
   const c=S.pipCtx,w=S.pipCanvas.width,h=S.pipCanvas.height;
   c.clearRect(0,0,w,h);
-  // 暗色背景
   const bg=c.createRadialGradient(w/2,h/2,w*.05,w/2,h/2,w*.7);
   bg.addColorStop(0,'#1e1b4b');bg.addColorStop(1,'#0d0d1a');
   c.fillStyle=bg;c.fillRect(0,0,w,h);
-  // emoji
   c.font='96px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
   c.textAlign='center';c.textBaseline='middle';
   c.fillText(S.pipEmoji,w/2,h/2-12);
-  // label with color
   c.font='bold 22px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
   c.fillStyle=S.pipColor;
   c.fillText(S.pipLabel,w/2,h/2+60);
-  // ring accent
   c.strokeStyle=S.pipColor+'55';c.lineWidth=2;
   c.beginPath();c.arc(w/2,h/2,80,0,Math.PI*2);c.stroke();
 }
 
 async function enterPiP(){
-  // 优先 Document PiP (Chrome 111+)
   if('documentPictureInPicture' in window){
     try{
       const pw=await documentPictureInPicture.requestWindow({width:180,height:180});
@@ -481,13 +545,12 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;w
       return;
     }catch(e){/* fall through to video PiP */}
   }
-  // Video PiP (Safari / Firefox / Chrome without docPiP)
   ensurePiPElements();
   drawPiPFrame();
   try{
     await S.pipVideo.requestPictureInPicture();
     S.pipMode='video';
-  }catch(e){/* 用户取消或浏览器不支持 */}
+  }catch(e){/* user declined or not supported */}
 }
 
 async function exitPiP(){
@@ -503,7 +566,6 @@ async function exitPiP(){
 
 function updatePiP(emoji,label,color){
   S.pipEmoji=emoji;S.pipLabel=label;S.pipColor=color;
-  // Document PiP
   if(S.pipMode==='document'&&S.pipWindow){
     try{
       S.pipWindow.document.getElementById('d-emoji').textContent=emoji;
@@ -511,7 +573,6 @@ function updatePiP(emoji,label,color){
       S.pipWindow.document.querySelector('body').style.background='radial-gradient(circle at center, '+color+'33 0%, #0d0d1a 100%)';
     }catch(e){}
   }
-  // Video PiP — update canvas frame
   if(S.pipMode==='video'||(S.isReading&&!S.pipMode)){
     drawPiPFrame();
   }
@@ -521,33 +582,28 @@ function updatePiP(emoji,label,color){
    BUBBLE ENCOURAGEMENT
    ============================================================ */
 const BUBBLE_MSGS={
-  frowning: ['坚持下来就好了','别急，慢一点也没关系','深呼吸，调整一下','书难读，但你在成长','皱眉的时候也是在思考'],
-  confused: ['慢慢理解，不着急','困惑是理解的开始','再读一遍就懂了','思考中…找找线索'],
-  sad: ['有些文字就是触动人心','感受它，没关系的','共情是一种力量'],
-  smiling: ['看来这里很有趣！','阅读的快乐 😊','享受这一刻','书中自有黄金屋'],
-  surprised: ['哇，有新发现！','惊喜时刻！','意想不到的收获'],
-  focused: ['你进入了心流状态','专注的你最棒','完全沉浸在书中了','此刻无人能打扰你'],
-  neutral: ['保持状态，慢慢来','稳稳地读下去'],
+  frown: ['坚持下来就好了','别急，慢一点也没关系','深呼吸，调整一下','书难读，但你在成长','皱眉的时候也是在思考','这段确实不好啃'],
+  smile: ['看来这里很有趣！','阅读的快乐 😊','享受这一刻','书中自有黄金屋','懂了的感觉真好'],
 };
 let _bubbleCD={};
 let _lastBubble=0;
 
-function spawnBubble(emotion){
+function spawnBubble(action){
   const now=Date.now();
   if(now-_lastBubble<8000)return;
-  if(now-(_bubbleCD[emotion]||0)<20000)return;
-  const msgs=BUBBLE_MSGS[emotion];
+  if(now-(_bubbleCD[action]||0)<20000)return;
+  const msgs=BUBBLE_MSGS[action];
   if(!msgs||!msgs.length)return;
-  _bubbleCD[emotion]=now;
+  _bubbleCD[action]=now;
   _lastBubble=now;
   const msg=msgs[Math.floor(Math.random()*msgs.length)];
-  const e=EM[emotion];
+  const a=ACT[action];
   const b=document.createElement('div');
   b.className='bubble';
-  b.textContent=e.emoji+' '+msg;
-  b.style.background=e.color+'18';
-  b.style.color=e.color;
-  b.style.borderColor=e.color+'33';
+  b.textContent=a.emoji+' '+msg;
+  b.style.background=a.color+'18';
+  b.style.color=a.color;
+  b.style.borderColor=a.color+'33';
   const ring=D.mirrorRing.getBoundingClientRect();
   const x=ring.left+ring.width/2+(Math.random()-.5)*100;
   const y=ring.top-16;
@@ -557,236 +613,325 @@ function spawnBubble(emotion){
 }
 
 /* ============================================================
-   FACIAL METRICS — extended
+   FACIAL METRICS — simplified for 2-action detection
    ============================================================ */
 const d3=(a,b)=>Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2+((a.z||0)-(b.z||0))**2);
-function computeMetrics(lm){
-  const ed=d3(lm[33],lm[263])||.01,n=v=>v/ed;
 
-  // Mouth
-  const mw=d3(lm[61],lm[291]),mh=d3(lm[13],lm[14]),mr=n(mh/(mw||.01));
-  // Mouth corner angle: positive = corners up, negative = corners down
-  const mouthAngle=(lm[61].y-lm[291].y)/(mw||.01);
+function computeActionMetrics(lm){
+  // All metrics normalized by eye distance for face-size invariance
+  const eyeDist=d3(lm[33],lm[263])||0.01;
+  const n=v=>v/eyeDist;
 
-  // Eyes
-  const le=d3(lm[159],lm[145])/(d3(lm[33],lm[133])||.01);
-  const re=d3(lm[386],lm[374])/(d3(lm[362],lm[263])||.01);
-  const ear=(le+re)/2;
+  // === Frown signals ===
+  // Signal 1: inner brow distance — smaller = brows pulled together
+  const innerBrowDist=n(d3(lm[107],lm[336]));
+  // Signal 2: brow-to-eye distance — smaller = brows lowered
+  // lm[105]=left brow center, lm[159]=left eye top; lm[334]=right brow center, lm[386]=right eye top
+  const browToEye=n((d3(lm[105],lm[159])+d3(lm[334],lm[386]))/2);
 
-  // Eyebrows
-  const lbh=n(lm[159].y-lm[105].y),rbh=n(lm[386].y-lm[334].y),abh=(lbh+rbh)/2;
-  const ibd=n(d3(lm[107],lm[336])); // inner brow distance
+  // === Smile signals ===
+  const mouthLeft=lm[61],mouthRight=lm[291];
+  const mouthWidth=d3(mouthLeft,mouthRight)||0.01;
+  // Signal 1: mouth aspect ratio (width/height) — larger = smile stretches mouth wider
+  const mouthHeight=d3(lm[13],lm[14])||0.01;
+  const mouthAR=mouthWidth/mouthHeight;
+  // Signal 2: mouth corner angle — positive = corners up (smile)
+  const mouthAngle=(mouthLeft.y-mouthRight.y)/mouthWidth;
 
-  // Inner brow height (for sad: inner brow goes UP)
-  const libh=n(lm[159].y-lm[107].y),ribh=n(lm[386].y-lm[336].y);
-  const innerBrowH=(libh+ribh)/2;
-
-  // Nose wrinkle
-  const nw=n(d3(lm[1],lm[168]));
-
-  return{mouthRatio:mr,mouthAngle,avgEAR:ear,avgBrowH:abh,innerBrowDist:ibd,innerBrowH,noseWrinkle:nw};
+  return{innerBrowDist,browToEye,mouthAR,mouthAngle};
 }
 
 /* ============================================================
-   CALIBRATION
+   ACTION DETECTION — fixed baseline, single primary signal
+   ============================================================
+   1. At startReading(), collect ~3s of neutral frames
+   2. Compute per-user mean + std for innerBrowDist and mouthAR
+   3. Detect frown/smile as z-score deviation from fixed baseline
+   —  no rolling window, no baseline drift
    ============================================================ */
-function calibrate(samples){
-  const avg=k=>samples.reduce((s,m)=>s+m[k],0)/samples.length;
-  const keys=['mouthRatio','mouthAngle','avgEAR','avgBrowH','innerBrowDist','innerBrowH','noseWrinkle'];
-  const b={};for(const k of keys)b[k]=avg(k);
-  b.stds={};for(const k of keys){const m=b[k];b.stds[k]=Math.sqrt(samples.reduce((s,x)=>s+(x[k]-m)**2,0)/samples.length)||.001}
-  // Auto-detect glasses: lower brows + tighter inner brow distance than typical
-  b.hasGlasses=(b.innerBrowDist<0.75&&b.avgBrowH<0.21);
-  // Brow signals are ~40% less reliable for glasses wearers — store bias factor
-  b.browFactor=b.hasGlasses?1.6:1.0;
-  return b;
+
+function computeBaseline(samples){
+  const keys=['innerBrowDist','browToEye','mouthAR','mouthAngle'];
+  const bl={};
+  for(const k of keys){
+    const vals=samples.map(s=>s[k]);
+    const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const variance=vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length;
+    bl[k]={mean,std:Math.max(Math.sqrt(variance),1e-6)};
+  }
+  return bl;
+}
+
+function detectAction(m){
+  // During calibration: collect samples, show countdown, no detection
+  if(S.calibrating){
+    S._calSamples.push(m);
+    const remain=Math.ceil((S._calTarget-S._calSamples.length)/12);
+    if(remain>0)D.actionSub.textContent='保持自然表情… '+remain;
+    if(S._calSamples.length>=S._calTarget){
+      S.neutralBaseline=computeBaseline(S._calSamples);
+      S.calibrating=false;S._calSamples=null;
+      D.actionSub.textContent='皱眉或微笑来记录，或点击下方按钮 ✨';
+      D.actionLabel.textContent='等待动作…';D.actionLabel.style.color='#60a5fa';
+      if(typeof finishCalibration==='function')finishCalibration();
+    }
+    return{action:null,frown:false,smile:false};
+  }
+
+  // Baseline not ready (before reading or failed calibration)
+  if(!S.neutralBaseline)return{action:null,frown:false,smile:false};
+
+  const bl=S.neutralBaseline;
+
+  // === Primary signals ===
+  // Frown: inner brows come together → innerBrowDist DECREASES
+  const ibdZ=(bl.innerBrowDist.mean-m.innerBrowDist)/bl.innerBrowDist.std;
+  // Smile: mouth stretches wide → mouthAR INCREASES
+  const marZ=(m.mouthAR-bl.mouthAR.mean)/bl.mouthAR.std;
+
+  // Sensitivity → z-score threshold
+  // sens=50 → 2.0 (moderate), sens=0 → 3.0 (strict), sens=100 → 1.0 (easy)
+  const th=sens=>3.0-sens/100*2.0;
+  const frownTh=th(S.settings.frownSens);
+  const smileTh=th(S.settings.smileSens);
+
+  // Auxiliary: frown also requires brow-to-eye decrease (brows lowered)
+  const bteZ=(bl.browToEye.mean-m.browToEye)/bl.browToEye.std;
+  // Auxiliary: smile also checks mouth angle increase
+  const maZ=(m.mouthAngle-bl.mouthAngle.mean)/bl.mouthAngle.std;
+
+  // Frown: primary signal strong + auxiliary confirms direction
+  const frownDetected=ibdZ>frownTh&&bteZ>0;
+  // Smile: primary signal strong OR both signals moderately positive
+  const smileDetected=marZ>smileTh||(marZ>smileTh*.5&&maZ>smileTh*.5);
+
+  return confirmAction(frownDetected,smileDetected);
+}
+
+// Temporal smoothing: require N consecutive frames
+function confirmAction(frownDetected,smileDetected){
+  const CONFIRM_FRAMES=3;
+
+  if(frownDetected){S.recentFrown++;S.recentSmile=0;}
+  else{S.recentFrown=Math.max(0,S.recentFrown-1);}
+  if(smileDetected){S.recentSmile++;S.recentFrown=0;}
+  else{S.recentSmile=Math.max(0,S.recentSmile-1);}
+
+  const frownConfirmed=S.recentFrown>=CONFIRM_FRAMES;
+  const smileConfirmed=S.recentSmile>=CONFIRM_FRAMES;
+
+  // Mutual exclusion: smile wins on tie
+  if(smileConfirmed&&frownConfirmed)return{action:'smile',frown:false,smile:true};
+  if(smileConfirmed)return{action:'smile',frown:false,smile:true};
+  if(frownConfirmed)return{action:'frown',frown:true,smile:false};
+  return{action:null,frown:false,smile:false};
 }
 
 /* ============================================================
-   EXPRESSION DETECTION — 7 emotions, glasses-aware
+   DEBOUNCE CHECK
    ============================================================ */
-const clamp=v=>Math.max(0,Math.min(1,v));
+function canTrigger(action){
+  const now=Date.now();
+  return now-S.lastTrigger[action]>=S.settings.debounceMs;
+}
 
-function detectExpression(m,bl){
-  if(!bl)return{emotion:'neutral',intensity:0,confidence:0};
-  const z=(v,k)=>(v-bl[k])/bl.stds[k];
-  const se=S.settings.sensitivity/5,th=1.8/se;
-  const bf=bl.browFactor||1; // 1.0 normal, 1.6 for glasses
+/* ============================================================
+   RECORD ACTION — event-driven
+   ============================================================ */
+function recordAction(action,text){
+  const now=new Date();
+  const time=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const entry={time,action};
+  if(text)entry.text=text;
 
-  const mrZ=z(m.mouthRatio,'mouthRatio');      // mouth open width
-  const maZ=z(m.mouthAngle,'mouthAngle');      // corners up(+) / down(-)
-  const bhZ=z(m.avgBrowH,'avgBrowH');          // brow height
-  const ibZ=-z(m.innerBrowDist,'innerBrowDist');// inner brows closer
-  const earZ=z(m.avgEAR,'avgEAR');             // eye openness
-  const ibhZ=z(m.innerBrowH,'innerBrowH');     // inner brow height
-  const nwZ=z(m.noseWrinkle,'noseWrinkle');    // nose wrinkle
+  S.timeline.push(entry);
 
-  // All scores start from 0, neutral gets a small floor
-  let sc={neutral:.2,frowning:0,smiling:0,confused:0,surprised:0,focused:0,sad:0};
+  // Always reset debounce timer for this action (manual or auto)
+  if(action==='frown'||action==='smile')S.lastTrigger[action]=Date.now();
 
-  // ===== SMILE: mouth-first (unaffected by glasses) =====
-  // Smile = mouth widens + corners lift. Very reliable standalone signal.
-  const mouthSmile=(mrZ*0.5+maZ*0.5)/th;
-  if(mouthSmile>.5) sc.smiling=clamp(mouthSmile/2.5);
+  // Visual feedback
+  flashMirror(action);
+  spawnParticles(action);
+  if(action!=='note')spawnBubble(action);
 
-  // ===== FROWNING: brows together + brows lowered, GLASSES-AWARE =====
-  // Thresholds widen when bf > 1.0
-  const fITh=0.55*bf; // inner brow closeness threshold (was 0.6)
-  const fBTh=-0.25*bf;// brow height threshold (was -0.3)
-  if(ibZ>fITh&&bhZ<fBTh){
-    sc.frowning=clamp(((ibZ-fITh)/(2*bf))*.5+((-bhZ+fBTh)/(2*bf))*.5);
+  // Update PiP
+  const a=ACT[action];
+  if(a)updatePiP(a.emoji,a.label,a.color);
+
+  // Update counts
+  updateCounts();
+
+  // Update action label
+  if(action!=='note'){
+    S.curAction=action;
+    D.actionLabel.textContent=a.emoji+' '+a.label;
+    D.actionLabel.style.color=a.color;
   }
 
-  // ===== SURPRISED: brows way up + mouth open + eyes wide =====
-  if(bhZ>th*.7&&mrZ>th*.7&&earZ>th*.4){
-    sc.surprised=clamp((bhZ/(th*3)+mrZ/(th*2)+earZ/(th*2))/3);
+  // Update avatar when camera off
+  if(!S.cameraOn&&action!=='note'){
+    D.avatarFace.textContent=a.emoji;
+    D.avatarFace.classList.remove('bounce');
+    void D.avatarFace.offsetWidth;
+    D.avatarFace.classList.add('bounce');
   }
+}
 
-  // ===== CONFUSED: brows together + eyes squinted =====
-  const cITh=0.35*bf;
-  if(ibZ>cITh&&earZ<-.3){
-    sc.confused=clamp(((ibZ-cITh)/(2*bf))*.5+((-earZ)/th)*.5);
-  }
-
-  // ===== FOCUSED: mild brow convergence + stable neutral over time =====
-  if(ibZ>.2&&ibZ<.9&&Math.abs(mrZ)<.8&&Math.abs(maZ)<.6&&earZ>-.3){
-    const s=clamp(S.recentExpr.filter(e=>e==='focused'||e==='neutral').length/7);
-    sc.focused=clamp(ibZ/(th+bf)*.4+s*.6);
-  }
-
-  // ===== SAD: inner brows UP + mouth corners down =====
-  if(ibhZ>.4&&maZ<-.4&&Math.abs(mrZ)<.6){
-    sc.sad=clamp(ibhZ/th*.5+((-maZ-.4)/th)*.5);
-  }
-
-  // ===== MUTUAL EXCLUSION =====
-  // Smile and frown cannot coexist — smile wins on tie
-  if(sc.smiling>.35){sc.frowning*=.15;sc.confused*=.25;sc.sad*=.3;}
-  // Frown suppresses focused & neutral
-  if(sc.frowning>.35){sc.focused*=.15;sc.neutral*=.4;}
-  // Confused suppresses neutral
-  if(sc.confused>.3) sc.neutral*=.4;
-
-  // Normalize
-  const total=Object.values(sc).reduce((a,b)=>a+b,0)||1;
-  for(const k of EKEYS)sc[k]/=total;
-
-  let dom='neutral',mx=sc.neutral;
-  for(const[e,v]of Object.entries(sc)){if(v>mx){mx=v;dom=e;}}
-
-  S.recentExpr.push(dom);if(S.recentExpr.length>10)S.recentExpr.shift();
-
-  return{emotion:dom,intensity:clamp(mx),confidence:clamp(mx)};
+function updateCounts(){
+  let f=0,s=0;
+  for(const e of S.timeline){if(e.action==='frown')f++;else if(e.action==='smile')s++;}
+  D.frownCount.textContent=f;
+  D.smileCount.textContent=s;
 }
 
 /* ============================================================
    CAMERA & MODEL
    ============================================================ */
 async function setupCamera(){
-  try{const s=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:CFG.camW},height:{ideal:CFG.camH},facingMode:'user'},audio:false});S.cameraStream=s;D.video.srcObject=s;await D.video.play();return true}catch(e){toast('❌ 无法访问摄像头');return false}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:CFG.camW},height:{ideal:CFG.camH},facingMode:'user'},audio:false
+    });
+    S.cameraStream=stream;D.video.srcObject=stream;await D.video.play();return true;
+  }catch(e){toast('❌ 无法访问摄像头');return false}
 }
+
 const{FaceLandmarker,FilesetResolver}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs');
+
 async function setupFL(){
   try{
-    D.calText.textContent='正在下载模型…';
+    D.actionSub.textContent='正在下载模型…';
     const v=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
-    D.calText.textContent='正在加载模型…';
-    const fl=await FaceLandmarker.createFromOptions(v,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numFaces:1,minFaceDetectionConfidence:.5,minTrackingConfidence:.5});
+    D.actionSub.textContent='正在加载模型…';
+    const fl=await FaceLandmarker.createFromOptions(v,{
+      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',delegate:'GPU'},
+      runningMode:'VIDEO',numFaces:1,minFaceDetectionConfidence:.5,minTrackingConfidence:.5
+    });
     S.fl=fl;return true;
   }catch(e){console.error(e);toast('⚠️ 模型加载失败');return false}
 }
 
 /* ============================================================
-   DETECTION
+   DETECTION LOOP
    ============================================================ */
-let _lastEmo='';
 function detectFace(){
   if(!S.fl||!S.visible)return;
   if(D.video.readyState<2)return;
   const r=S.fl.detectForVideo(D.video,performance.now());
-  if(!r.faceLandmarks||!r.faceLandmarks.length){if(S.isReading)S.cur={emotion:'neutral',intensity:0,confidence:0};return}
-  const m=computeMetrics(r.faceLandmarks[0]);
-
-  if(S.calibrating){
-    if(!S._samples)S._samples=[];
-    S._samples.push(m);const pct=Math.min(1,S._samples.length/CFG.baselineFrames);
-    D.calBarFill.style.width=(pct*100)+'%';
-    if(S._samples.length<=3)D.calText.textContent='正在分析面部特征…';
-    else D.calText.textContent='正在校准…('+S._samples.length+'/'+CFG.baselineFrames+')';
-    if(S._samples.length>=CFG.baselineFrames){S.baseline=calibrate(S._samples);S.calibrated=true;S.calibrating=false;S._samples=null;stopLoop();D.calOverlay.classList.remove('show');updateUI({emotion:'neutral',intensity:0});D.emotionSub.textContent='可以开始阅读了 ✨';const g=S.baseline.hasGlasses?'（已检测到眼镜，自动调整识别参数）':'';toast('✅ 校准完成！'+g);console.log('📐 Calibrated. Glasses:',S.baseline.hasGlasses,'Brow factor:',S.baseline.browFactor)}
+  if(!r.faceLandmarks||!r.faceLandmarks.length){
+    if(!S.isReading)S.curAction=null;
     return;
   }
-  if(!S.calibrated)return;
-  const expr=detectExpression(m,S.baseline);
-  if(S.isReading){const prev=S.cur.emotion;S.cur=expr;if(expr.intensity>.15)spawnParticles(expr.emotion,expr.intensity);if(expr.intensity>.35&&prev!==expr.emotion&&['frowning','confused','sad','smiling','surprised','focused'].includes(expr.emotion))spawnBubble(expr.emotion)}
-  updateUI(expr);
-}
+  const m=computeActionMetrics(r.faceLandmarks[0]);
 
-function updateUI(expr){
-  const{emotion,intensity}=expr,e=EM[emotion]||EM.neutral;
-  // Avatar face (when camera off)
-  if(!S.cameraOn){D.avatarFace.textContent=e.emoji;if(emotion!==_lastEmo&&intensity>.25){D.avatarFace.classList.remove('bounce');void D.avatarFace.offsetWidth;D.avatarFace.classList.add('bounce')}}
-  _lastEmo=emotion;
-  D.ringLabel.textContent=S.cameraOn?'你':'表情映射';
-  D.emotionLabel.textContent=e.label;D.emotionLabel.style.color=e.color;
-  D.statusEmo.textContent=e.emoji;D.statusLabel.textContent=e.label;
-  D.emoBadge.style.borderColor=e.color;D.emoBadge.style.boxShadow='0 0 10px '+e.color+'33';
-  updatePiP(e.emoji,e.label,e.color);
+  if(S.isReading){
+    const result=detectAction(m);
+    if(result.action&&canTrigger(result.action)){
+      S.lastTrigger[result.action]=Date.now();
+      // Reset confirm counters to avoid re-trigger on next frame
+      S.recentFrown=0;S.recentSmile=0;
+      recordAction(result.action);
+    }
+  }
 }
 
 /* ============================================================
    LOOP
    ============================================================ */
 let _loopId=null;
-function processFrame(){detectFace()}
-function startLoop(){stopLoop();_loopId=setInterval(processFrame,1000/CFG.fps)}
+function startLoop(){stopLoop();_loopId=setInterval(detectFace,1000/CFG.fps)}
 function stopLoop(){if(_loopId){clearInterval(_loopId);_loopId=null}}
 
 /* ============================================================
-   READING
+   READING SESSION
    ============================================================ */
 function startReading(){
-  if(!S.calibrated){toast('⚠️ 请等待校准完成');return}
-  S.isReading=true;S.sessionStart=Date.now();S.sessionSeconds=0;S.emotionHistory=[];
-  S.cur={emotion:'neutral',intensity:0,confidence:0};
-  D.btnRead.textContent='⏹ 结束阅读';D.btnRead.className='stop';D.emotionSub.textContent='正在陪伴中…';
+  if(!S.fl){toast('⚠️ 模型还在加载中…');return}
+  S.isReading=true;S.sessionStart=null;S.sessionSeconds=0;S.timeline=[];
+  S.lastTrigger={frown:0,smile:0};S.curAction=null;
+  S.recentFrown=0;S.recentSmile=0;
+  // Start quick calibration (collect neutral frames, ~3s)
+  S.calibrating=true;S._calSamples=[];S.neutralBaseline=null;
+  D.btnRead.textContent='⏹ 结束阅读';D.btnRead.className='stop';
+  D.actionSub.textContent='保持自然表情… 3';
+  D.actionLabel.textContent='⏳ 校准中';
+  D.actionLabel.style.color='#a78bfa';
   if(S.cameraOn)D.video.classList.remove('hidden');
-  S.timerInt=setInterval(()=>{S.sessionSeconds++;updateTimer();sampleEmotion()},1000);
-  startLoop();enterPiP();toast('📖 阅读开始！灵动岛已开启 🏝️');
+  updateCounts();
+  // Note: timer and PiP start after calibration
+  startLoop();enterPiP();
 }
+
+function finishCalibration(){
+  // Called from detectFace when calibration completes
+  S.sessionStart=Date.now();
+  S.timerInt=setInterval(()=>{S.sessionSeconds++;updateTimer()},1000);
+  toast('✅ 校准完成，开始记录！');
+}
+
 function stopReading(){
   if(!S.isReading)return;S.isReading=false;
+  S.calibrating=false;S._calSamples=null;
   const mins=Math.round(S.sessionSeconds/60*10)/10;
   clearInterval(S.timerInt);S.timerInt=null;stopLoop();exitPiP();
-  D.btnRead.textContent='▶ 开始阅读';D.btnRead.className='start';D.emotionSub.textContent='可以再次开始';
-  if(S.emotionHistory.length>0){const d=genDiary(mins);saveDiary(d);showDetail(d);toast('📔 日记已生成！')}else toast('📖 阅读结束');
-  S.sessionSeconds=0;S.emotionHistory=[];S.cur={emotion:'neutral',intensity:0,confidence:0};
-  updateTimer();updateUI(S.cur);
+  S.neutralBaseline=null;
+  D.btnRead.textContent='▶ 开始阅读';D.btnRead.className='start';
+  D.actionSub.textContent='可以再次开始';
+  D.actionLabel.textContent='等待开始';D.actionLabel.style.color='#60a5fa';
+  if(S.timeline.length>0){const d=genDiary(mins);saveDiary(d);showDetail(d);toast('📔 日记已生成！')}else toast('📖 阅读结束');
+  S.sessionSeconds=0;S.curAction=null;updateTimer();
+  updatePiP('😐','等待开始','#60a5fa');
 }
-function sampleEmotion(){const{emotion,intensity,confidence}=S.cur;S.emotionHistory.push({second:S.sessionSeconds,emotion,intensity,confidence})}
 
 /* ============================================================
    DIARY
    ============================================================ */
 function genDiary(mins){
-  const h=S.emotionHistory,total=h.length||1;
-  const dist={};for(const k of EKEYS)dist[k]=0;
-  for(const s of h)dist[s.emotion]=(dist[s.emotion]||0)+1;
-  const pct={};for(const[k,v]of Object.entries(dist))pct[k]=Math.round(v/total*100);
-  let hardest={time:0,emotion:'neutral',pct:0};let mx=0;const WIN=180;
-  for(let i=0;i<h.length;i++){const end=h[i].second,start=end-WIN;const ws=h.filter(s=>s.second>=start&&s.second<=end);const neg=ws.filter(s=>s.emotion==='frowning'||s.emotion==='confused'||s.emotion==='sad').length;if(neg>mx&&ws.length>10){mx=neg;const nw=ws.filter(s=>s.emotion==='frowning'||s.emotion==='confused'||s.emotion==='sad');hardest={time:Math.round(start/60),emotion:nw.filter(s=>s.emotion==='frowning').length>=nw.length/2?'frowning':(nw.filter(s=>s.emotion==='sad').length>=nw.length/2?'sad':'confused'),pct:Math.round(neg/ws.length*100)}}}
-  let best=0,cur=0;for(const s of h){if(s.emotion==='neutral'||s.emotion==='focused'||s.emotion==='confused'){cur++;best=Math.max(best,cur)}else cur=0}
-  const focus=Math.round(best/60*10)/10,enc=genEnc(pct,mins,hardest,focus);
-  return{id:new Date().toISOString().replace(/[:.]/g,'-'),date:fmt(new Date()),timestamp:Date.now(),durationMinutes:mins,emotionDistribution:pct,hardestMoment:hardest,longestFocusMinutes:focus,encouragementText:enc};
+  const tl=S.timeline;
+  let frownCount=0,smileCount=0;
+  const manualNotes=[];
+  for(const e of tl){
+    if(e.action==='frown')frownCount++;
+    else if(e.action==='smile')smileCount++;
+    else if(e.action==='note'&&e.text)manualNotes.push(e.text);
+  }
+  // Find most difficult period (densest frown cluster)
+  let hardest={time:'—',density:0};
+  if(frownCount>0){
+    // Group frowns into 5-minute windows
+    const windows=[];
+    for(const e of tl){
+      if(e.action!=='frown')continue;
+      const[min,sec]=(e.time||'0:0').split(':').map(Number);
+      const totalMin=(min||0)+(sec||0)/60;
+      const w=Math.floor(totalMin/5);
+      if(!windows[w])windows[w]={start:w*5,count:0};
+      windows[w].count++;
+    }
+    let maxW=windows[0]||{start:0,count:0};
+    for(const w of windows){if(w&&w.count>maxW.count)maxW=w;}
+    hardest={time:'第 '+maxW.start+' 分钟左右',density:maxW.count};
+  }
+  const enc=genEnc(frownCount,smileCount,mins,hardest);
+  return{
+    id:new Date().toISOString().replace(/[:.]/g,'-'),
+    date:fmt(new Date()),timestamp:Date.now(),
+    durationMinutes:mins,
+    frownCount,smileCount,
+    manualNotes,
+    hardestPeriod:hardest,
+    timeline:tl,
+    encouragementText:enc,
+  };
 }
-function genEnc(pct,mins,hardest,focus){
+
+function genEnc(fc,sc,mins,hardest){
   const t=[];
-  if((pct.frowning||0)>25&&mins>20)t.push('今天有 '+(pct.frowning||0)+'% 的时间在皱眉，但你坚持了 '+mins+' 分钟，了不起。');
-  if(hardest.time>0&&hardest.pct>40)t.push('第 '+hardest.time+' 分钟左右遇到了最难啃的一段，但你没有放弃。');
-  if((pct.smiling||0)>15)t.push('微笑占比 '+(pct.smiling||0)+'%，这本书给了你不少惊喜。');
-  if((pct.focused||0)>30&&mins>15)t.push('有 '+(pct.focused||0)+'% 的时间高度专注，你进入了心流状态。');
-  if(focus>10)t.push('曾连续专注了 '+focus+' 分钟，完全沉浸在书里。');
-  if((pct.sad||0)>15)t.push((pct.sad||0)+'% 的难过时光——有些书就是会触动心底最柔软的地方。');
+  if(fc>8&&mins>20)t.push('今天皱了 '+fc+' 次眉，但你坚持了 '+mins+' 分钟，了不起。');
+  if(hardest.time!=='—'&&hardest.density>2)t.push(hardest.time+'遇到了最难啃的一段，密集皱眉 '+hardest.density+' 次。');
+  if(sc>3)t.push('微笑了 '+sc+' 次，这本书给了你不少惊喜。');
+  if(fc===0&&sc===0)t.push('读了 '+mins+' 分钟，平静而专注。');
+  if(fc>0&&sc>0)t.push('皱眉 '+fc+' 次，微笑 '+sc+' 次——阅读就是这样，有难有懂。');
   if(!t.length)t.push(mins<5?'虽然只读了 '+mins+' 分钟，每一分钟都在认真思考。':'读了 '+mins+' 分钟，每次翻页都是向前一步。');
   return t[Math.floor(Math.random()*t.length)];
 }
@@ -794,56 +939,128 @@ function genEnc(pct,mins,hardest,focus){
 /* ============================================================
    STORAGE
    ============================================================ */
-const KD='em4_d',KC='em4_c';
+const KD='em4_d_v2',KC='em4_c_v2';
 function saveDiary(d){const l=loadDiaries();l.unshift(d);try{localStorage.setItem(KD,JSON.stringify(l))}catch(e){l.pop();localStorage.setItem(KD,JSON.stringify(l));toast('⚠️ 存储空间不足')}}
 function loadDiaries(){try{return JSON.parse(localStorage.getItem(KD))||[]}catch(e){return[]}}
 function deleteDiary(id){localStorage.setItem(KD,JSON.stringify(loadDiaries().filter(d=>d.id!==id)));renderDiaryList();toast('🗑 已删除')}
+
 function exportDiary(diary,fmt){
-  let c,fn,m;if(fmt==='json'){c=JSON.stringify(diary,null,2);fn='diary-'+diary.id+'.json';m='application/json'}else{const d=diary.emotionDistribution;c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 🎭 情绪\n'+EKEYS.map(k=>'| '+EM[k].emoji+' '+EM[k].label+' | '+(d[k]||0)+'% |').join('\n')+'\n\n💪 最难: 第 '+diary.hardestMoment.time+' 分钟\n📚 专注 '+diary.longestFocusMinutes+' 分钟\n\n> '+diary.encouragementText+'\n';fn='diary-'+diary.id+'.md';m='text/markdown'}
-  const b=new Blob([c],{type:m}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+fmt.toUpperCase())
+  let c,fn,m;
+  if(fmt==='json'){
+    c=JSON.stringify(diary,null,2);fn='diary-'+diary.id+'.json';m='application/json';
+  }else{
+    const tl=(diary.timeline||[]).map(e=>'| '+e.time+' | '+(e.action==='frown'?'😤 皱眉':e.action==='smile'?'🙂 微笑':'📝 '+(e.text||''))+' |').join('\n');
+    const notes=(diary.manualNotes||[]).map(n=>'- '+n).join('\n');
+    c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 😤 皱眉: '+diary.frownCount+' 次\n## 🙂 微笑: '+diary.smileCount+' 次\n\n## 📋 记录\n'+tl+'\n'+(notes?'\n## 📝 备注\n'+notes+'\n':'')+'\n> '+diary.encouragementText+'\n';
+    fn='diary-'+diary.id+'.md';m='text/markdown';
+  }
+  const b=new Blob([c],{type:m}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+fmt.toUpperCase());
 }
-function exportAllDiaries(){const l=loadDiaries();if(!l.length){toast('📭 没有日记');return}const b=new Blob([JSON.stringify(l,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='all-diaries-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+l.length+' 篇')}
-function clearAllData(){if(confirm('删除所有数据？')){localStorage.removeItem(KD);renderDiaryList();toast('🗑 已清除')}}
+
+function exportAllDiaries(){
+  const l=loadDiaries();if(!l.length){toast('📭 没有日记');return}
+  const b=new Blob([JSON.stringify(l,null,2)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download='all-diaries-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  URL.revokeObjectURL(a.href);toast('📤 已导出 '+l.length+' 篇');
+}
+
+function clearAllData(){
+  if(confirm('删除所有数据？')){localStorage.removeItem(KD);renderDiaryList();toast('🗑 已清除')}
+}
 
 /* ============================================================
    UI
    ============================================================ */
 function updateTimer(){const m=Math.floor(S.sessionSeconds/60),s=S.sessionSeconds%60;D.timer.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
 function toast(msg){const t=D.toast;t.textContent=msg;t.classList.add('show');clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500)}
-function togglePanel(p,b){const o=p.classList.contains('open');$$('.panel.open').forEach(x=>x.classList.remove('open'));$$('.panel-back.open').forEach(x=>x.classList.remove('open'));if(!o){p.classList.add('open');b.classList.add('open')}}
+
+function togglePanel(p,b){
+  const o=p.classList.contains('open');
+  $$('.panel.open').forEach(x=>x.classList.remove('open'));
+  $$('.panel-back.open').forEach(x=>x.classList.remove('open'));
+  if(!o){p.classList.add('open');b.classList.add('open')}
+}
 
 function renderDiaryList(){
-  const l=loadDiaries(),c=D.diaryScroll;if(!l.length){c.innerHTML='<div class="d-empty">还没有日记<br>开始吧 ✨</div>';return}
-  c.innerHTML=l.map(d=>'<div class="d-card"><div class="d-date">📅 '+d.date+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | '+EKEYS.filter(k=>(d.emotionDistribution[k]||0)>5).map(k=>EM[k].emoji+(d.emotionDistribution[k]||0)+'%').join(' ')+'</div><div class="d-enc">💬 '+d.encouragementText+'</div><div class="d-btns"><button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>').join('');
+  const l=loadDiaries(),c=D.diaryScroll;
+  if(!l.length){c.innerHTML='<div class="d-empty">还没有日记<br>开始吧 ✨</div>';return}
+  c.innerHTML=l.map(d=>{
+    const notes=(d.manualNotes||[]).slice(0,2).map(n=>'📝 '+n).join('<br>');
+    return '<div class="d-card"><div class="d-date">📅 '+d.date+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | 😤 '+d.frownCount+' 次 | 🙂 '+d.smileCount+' 次'+(notes?'<br>'+notes:'')+'</div><div class="d-enc">💬 '+d.encouragementText+'</div><div class="d-btns"><button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>';
+  }).join('');
   c.querySelectorAll('.view').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)showDetail(d)});
   c.querySelectorAll('.json').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'json')});
   c.querySelectorAll('.md').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'md')});
   c.querySelectorAll('.del').forEach(b=>b.onclick=()=>{if(confirm('删除？'))deleteDiary(b.dataset.id)});
 }
+
 function showDetail(diary){
-  const d=diary.emotionDistribution,b=D.modalBox,bk=D.modalBack;
-  b.innerHTML='<h4>📔 '+diary.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+diary.durationMinutes+' 分钟</p><div>'+EKEYS.map(k=>'<div class="emo-row"><span>'+EM[k].emoji+' '+EM[k].label+'</span><div class="track"><div class="fill" style="width:'+(d[k]||0)+'%;background:'+EM[k].color+';"></div></div><span style="font-size:11px;color:var(--text-muted);">'+(d[k]||0)+'%</span></div>').join('')+'</div><p style="font-size:12px;color:var(--text-muted);margin-top:10px;">💪 最难: 第 '+diary.hardestMoment.time+' 分钟 · '+EM[diary.hardestMoment.emotion]?.label+'</p><p style="font-size:12px;color:var(--text-muted);">📚 专注 '+diary.longestFocusMinutes+' 分钟</p><p style="font-size:12px;color:var(--accent);font-style:italic;margin-top:8px;">💬 '+diary.encouragementText+'</p><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
+  const d=diary,b=D.modalBox,bk=D.modalBack;
+  const tl=(d.timeline||[]).map(e=>'<div class="tl-item"><span class="tl-time">'+e.time+'</span> <span class="tl-icon">'+(e.action==='frown'?'😤':e.action==='smile'?'🙂':'📝')+'</span> <span class="tl-text">'+(e.text||(e.action==='frown'?'皱眉':e.action==='smile'?'微笑':'备注'))+'</span></div>').reverse().join('');
+  const notes=(d.manualNotes||[]).map(n=>'<div style="font-size:11px;margin:2px 0">📝 '+n+'</div>').join('');
+  b.innerHTML='<h4>📔 '+d.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">⏱ '+d.durationMinutes+' 分钟 | 😤 皱眉 '+d.frownCount+' 次 | 🙂 微笑 '+d.smileCount+' 次</p>'+(notes?'<div style="margin-bottom:8px">'+notes+'</div>':'')+'<div class="tl-mini">'+tl+'</div><p style="font-size:12px;color:var(--accent);font-style:italic;margin-top:8px;">💬 '+d.encouragementText+'</p><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
   bk.classList.add('open');
-  $('#m-close').onclick=()=>bk.classList.remove('open');$('#m-json').onclick=()=>exportDiary(diary,'json');
-  $('#m-md').onclick=()=>exportDiary(diary,'md');$('#m-del').onclick=()=>{if(confirm('删除？')){deleteDiary(diary.id);bk.classList.remove('open')}};
+  $('#m-close').onclick=()=>bk.classList.remove('open');
+  $('#m-json').onclick=()=>exportDiary(diary,'json');
+  $('#m-md').onclick=()=>exportDiary(diary,'md');
+  $('#m-del').onclick=()=>{if(confirm('删除？')){deleteDiary(diary.id);bk.classList.remove('open')}};
   bk.onclick=e=>{if(e.target===bk)bk.classList.remove('open')};
+}
+
+/* ============================================================
+   NOTE INPUT
+   ============================================================ */
+function showNoteInput(){
+  D.noteInputRow.classList.add('show');
+  D.noteInput.value='';
+  D.noteInput.focus();
+}
+function hideNoteInput(){
+  D.noteInputRow.classList.remove('show');
+}
+function confirmNote(){
+  const text=D.noteInput.value.trim();
+  if(!text)return;
+  recordAction('note',text);
+  hideNoteInput();
 }
 
 /* ============================================================
    SETTINGS
    ============================================================ */
-function loadSettings(){try{const s=JSON.parse(localStorage.getItem(KC));if(s)S.settings={...S.settings,...s}}catch(e){}applySettings()}
+function loadSettings(){
+  try{const s=JSON.parse(localStorage.getItem(KC));if(s)S.settings={...S.settings,...s}}catch(e){}
+  applySettings();
+}
 function saveSettings(){localStorage.setItem(KC,JSON.stringify(S.settings))}
-function applySettings(){const s=S.settings;$('#s-sensitivity').value=s.sensitivity;$('#s-intensity').value=s.intensity;document.body.dataset.theme=s.theme;$$('.theme-opt').forEach(o=>o.classList.toggle('sel',o.dataset.theme===s.theme))}
+function applySettings(){
+  const s=S.settings;
+  $('#s-frown-sens').value=s.frownSens;
+  $('#s-smile-sens').value=s.smileSens;
+  $('#s-debounce').value=Math.round(s.debounceMs/100);
+  $('#debounce-val').textContent=(s.debounceMs/1000).toFixed(1)+'秒';
+  $('#s-intensity').value=s.intensity;
+  document.body.dataset.theme=s.theme;
+  $$('.theme-opt').forEach(o=>o.classList.toggle('sel',o.dataset.theme===s.theme));
+}
 
 /* ============================================================
    CAMERA TOGGLE
    ============================================================ */
 function toggleCamera(){
   S.cameraOn=!S.cameraOn;
-  if(S.cameraOn){D.video.classList.remove('hidden');D.camBtn.textContent='📷';D.camBtn.title='切换为表情映射';D.ringLabel.textContent='你';D.mirrorRing.style.background='#000';D.avatarFace.style.display='none'}
-  else{D.video.classList.add('hidden');D.camBtn.textContent='🎭';D.camBtn.title='显示摄像头';D.ringLabel.textContent='表情映射';D.avatarFace.textContent=EM[S.cur.emotion]?.emoji||'😐';D.avatarFace.style.display='flex';D.mirrorRing.style.background='var(--bg-panel)'}
+  if(S.cameraOn){
+    D.video.classList.remove('hidden');D.camBtn.textContent='📷';D.camBtn.title='切换为表情映射';
+    D.ringLabel.textContent='你';D.mirrorRing.style.background='#000';D.avatarFace.style.display='none';
+  }else{
+    D.video.classList.add('hidden');D.camBtn.textContent='🎭';D.camBtn.title='显示摄像头';
+    D.ringLabel.textContent='表情映射';
+    const a=ACT[S.curAction]||{emoji:'😐'};
+    D.avatarFace.textContent=a.emoji;D.avatarFace.style.display='flex';
+    D.mirrorRing.style.background='var(--bg-panel)';
+  }
 }
 
 /* ============================================================
@@ -852,22 +1069,51 @@ function toggleCamera(){
 function bindEvents(){
   D.btnRead.onclick=()=>S.isReading?stopReading():startReading();
   D.camBtn.onclick=e=>{e.stopPropagation();toggleCamera()};
+
+  // Manual buttons
+  $('#btn-manual-frown').onclick=()=>{if(S.isReading)recordAction('frown')};
+  $('#btn-manual-smile').onclick=()=>{if(S.isReading)recordAction('smile')};
+  $('#btn-manual-note').onclick=()=>{if(S.isReading)showNoteInput()};
+
+  // Note input
+  D.noteConfirm.onclick=confirmNote;
+  D.noteInput.onkeydown=e=>{if(e.key==='Enter')confirmNote();else if(e.key==='Escape')hideNoteInput()};
+
+  // Panels
   $('#btn-diary').onclick=()=>{renderDiaryList();togglePanel(D.diaryPanel,D.diaryBack)};
   $('#close-diary').onclick=()=>{D.diaryPanel.classList.remove('open');D.diaryBack.classList.remove('open')};
   D.diaryBack.onclick=()=>{D.diaryPanel.classList.remove('open');D.diaryBack.classList.remove('open')};
   $('#btn-settings').onclick=()=>togglePanel(D.settingsPanel,D.settingsBack);
   $('#close-settings').onclick=()=>{D.settingsPanel.classList.remove('open');D.settingsBack.classList.remove('open')};
   D.settingsBack.onclick=()=>{D.settingsPanel.classList.remove('open');D.settingsBack.classList.remove('open')};
-  $('#s-sensitivity').oninput=e=>{S.settings.sensitivity=+e.target.value;saveSettings()};
+
+  // Settings inputs
+  $('#s-frown-sens').oninput=e=>{S.settings.frownSens=+e.target.value;saveSettings()};
+  $('#s-smile-sens').oninput=e=>{S.settings.smileSens=+e.target.value;saveSettings()};
+  $('#s-debounce').oninput=e=>{S.settings.debounceMs=+e.target.value*100;$('#debounce-val').textContent=(S.settings.debounceMs/1000).toFixed(1)+'秒';saveSettings()};
   $('#s-intensity').oninput=e=>{S.settings.intensity=+e.target.value;saveSettings()};
   $$('.theme-opt').forEach(o=>o.onclick=()=>{S.settings.theme=o.dataset.theme;saveSettings();applySettings()});
   $('#btn-export-all').onclick=exportAllDiaries;
   $('#btn-clear-all').onclick=clearAllData;
-  document.onkeydown=e=>{if(e.key==='Escape'){$$('.panel.open').forEach(p=>p.classList.remove('open'));$$('.panel-back.open').forEach(b=>b.classList.remove('open'));D.modalBack.classList.remove('open')}};
+
+  // Global
+  document.onkeydown=e=>{
+    if(e.key==='Escape'){
+      $$('.panel.open').forEach(p=>p.classList.remove('open'));
+      $$('.panel-back.open').forEach(b=>b.classList.remove('open'));
+      D.modalBack.classList.remove('open');
+      hideNoteInput();
+    }
+  };
 }
 
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&!S.pipMode)S.visible=false;else if(!document.hidden)S.visible=true});
-window.addEventListener('beforeunload',()=>{if(S.isReading&&S.emotionHistory.length>10){saveDiary(genDiary(Math.round(S.sessionSeconds/60*10)/10))}});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&!S.pipMode)S.visible=false;
+  else if(!document.hidden)S.visible=true;
+});
+window.addEventListener('beforeunload',()=>{
+  if(S.isReading&&S.timeline.length>0){saveDiary(genDiary(Math.round(S.sessionSeconds/60*10)/10))}
+});
 
 /* ============================================================
    INIT
@@ -875,10 +1121,10 @@ window.addEventListener('beforeunload',()=>{if(S.isReading&&S.emotionHistory.len
 async function init(){
   setupCanvas();S.animId=requestAnimationFrame(particleLoop);
   loadSettings();bindEvents();
-  const camOk=await setupCamera();if(!camOk)return;
-  D.calOverlay.classList.add('show');D.calBarFill.style.width='0%';D.calText.textContent='正在下载模型…';
-  const flOk=await setupFL();if(!flOk)return;
-  D.calSpinner.style.display='none';S.calibrating=true;S._samples=[];D.calText.textContent='正在分析面部特征…';
+  const camOk=await setupCamera();if(!camOk){D.actionSub.textContent='无法访问摄像头，请检查权限';return}
+  const flOk=await setupFL();if(!flOk){D.actionSub.textContent='模型加载失败，请刷新重试';return}
+  D.actionSub.textContent='可以开始阅读了 ✨';
+  D.actionLabel.textContent='等待开始';
   startLoop();
 }
 init().catch(err=>{console.error(err);toast('⚠️ 初始化失败，请刷新')});
