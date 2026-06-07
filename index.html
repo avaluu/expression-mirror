@@ -218,6 +218,28 @@ body{
 #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);padding:9px 22px;border-radius:20px;background:var(--bg-panel);color:var(--text);font-size:13px;box-shadow:var(--shadow);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;border:1px solid var(--border)}
 #toast.show{opacity:1}
 
+/* ============================================================
+   Bubble encouragement
+   ============================================================ */
+#bubble-container{position:fixed;inset:0;pointer-events:none;z-index:15}
+.bubble{
+  position:absolute;padding:10px 20px;border-radius:24px;
+  font-size:14px;font-weight:500;white-space:nowrap;
+  font-family:var(--font-ui);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 4px 24px rgba(0,0,0,.35);
+  animation:bubbleUp 4.5s cubic-bezier(.22,.54,.36,.97) forwards;
+  pointer-events:none;letter-spacing:.3px;
+}
+@keyframes bubbleUp{
+  0%{opacity:0;transform:translateY(18px) scale(.75)}
+  12%{opacity:1;transform:translateY(0) scale(1.06)}
+  22%{transform:translateY(-6px) scale(1)}
+  70%{opacity:.9}
+  100%{opacity:0;transform:translateY(-140px) scale(.85)}
+}
+
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
@@ -255,10 +277,11 @@ body{
   </div>
 </div>
 
+<div id="bubble-container"></div>
+
 <div id="status-bar">
   <div class="emo-badge" id="emo-badge"><span class="emo">😐</span><span id="status-emotion">中性</span></div>
   <span class="stat">⏱ <span id="timer">00:00</span></span>
-  <span class="stat">😠 <span id="frowns">0</span> 次</span>
   <span class="spacer"></span>
   <button id="btn-read" class="start">▶ 开始阅读</button>
   <button class="icon-btn" id="btn-diary">📔</button>
@@ -320,7 +343,7 @@ const D={
   avatarFace:$('#avatar-face'),ringLabel:$('#ring-label'),
   camBtn:$('#cam-btn'),emotionLabel:$('#emotion-label'),emotionSub:$('#emotion-sub'),
   statusEmo:$('#emo-badge .emo'),statusLabel:$('#status-emotion'),
-  emoBadge:$('#emo-badge'),timer:$('#timer'),frowns:$('#frowns'),
+  emoBadge:$('#emo-badge'),timer:$('#timer'),
   btnRead:$('#btn-read'),calOverlay:$('#cal-overlay'),
   calSpinner:$('#cal-spinner'),calText:$('#cal-text'),calBarFill:$('#cal-bar-fill'),
   settingsPanel:$('#settings-panel'),settingsBack:$('#settings-back'),
@@ -336,12 +359,11 @@ const S={
   isReading:false,sessionStart:null,sessionSeconds:0,timerInt:null,
   emotionHistory:[],baseline:null,
   cur:{emotion:'neutral',intensity:0,confidence:0},
-  feedbackCount:0,dailyFrowns:0,
   fl:null,cameraStream:null,
   calibrated:false,calibrating:false,visible:true,
   particles:[],animId:null,
   settings:{sensitivity:5,intensity:6,theme:'dark'},
-  cameraOn:true,
+  cameraOn:true,pipMode:null,pipWindow:null,
   // Temporal tracking for "focused" detection
   recentExpr:[],
 };
@@ -393,6 +415,145 @@ function setupCanvas(){
   D.pctx=D.pCvs.getContext('2d',{alpha:true});
   const rz=()=>{D.pCvs.width=innerWidth*devicePixelRatio;D.pCvs.height=innerHeight*devicePixelRatio;D.pCvs.style.width=innerWidth+'px';D.pCvs.style.height=innerHeight+'px';D.pctx.scale(devicePixelRatio,devicePixelRatio)};
   rz();window.addEventListener('resize',rz);
+}
+
+/* ============================================================
+   PICTURE-IN-PICTURE — Canvas PiP 保活摄像头（Safari/Chrome/Firefox 通用）
+   ============================================================ */
+S.pipVideo=null;S.pipCanvas=null;S.pipCtx=null;S.pipEmoji='😐';S.pipLabel='';S.pipColor='#60a5fa';
+
+function ensurePiPElements(){
+  if(S.pipCanvas)return;
+  S.pipCanvas=document.createElement('canvas');
+  S.pipCanvas.id='pip-canvas';
+  S.pipCanvas.width=256;S.pipCanvas.height=256;
+  S.pipCtx=S.pipCanvas.getContext('2d');
+  S.pipVideo=document.createElement('video');
+  S.pipVideo.id='pip-video';
+  S.pipVideo.muted=true;S.pipVideo.playsInline=true;
+  S.pipVideo.srcObject=S.pipCanvas.captureStream(10);
+  S.pipVideo.play();
+  document.body.appendChild(S.pipCanvas);
+  document.body.appendChild(S.pipVideo);
+  // 隐藏：用 CSS 控制，不能 display:none 否则 PiP 失效
+  S.pipCanvas.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  S.pipVideo.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  S.pipVideo.addEventListener('leavepictureinpicture',()=>{
+    if(S.isReading)setTimeout(enterPiP,600);
+  });
+}
+
+function drawPiPFrame(){
+  if(!S.pipCtx)return;
+  const c=S.pipCtx,w=S.pipCanvas.width,h=S.pipCanvas.height;
+  c.clearRect(0,0,w,h);
+  // 暗色背景
+  const bg=c.createRadialGradient(w/2,h/2,w*.05,w/2,h/2,w*.7);
+  bg.addColorStop(0,'#1e1b4b');bg.addColorStop(1,'#0d0d1a');
+  c.fillStyle=bg;c.fillRect(0,0,w,h);
+  // emoji
+  c.font='96px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+  c.textAlign='center';c.textBaseline='middle';
+  c.fillText(S.pipEmoji,w/2,h/2-12);
+  // label with color
+  c.font='bold 22px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+  c.fillStyle=S.pipColor;
+  c.fillText(S.pipLabel,w/2,h/2+60);
+  // ring accent
+  c.strokeStyle=S.pipColor+'55';c.lineWidth=2;
+  c.beginPath();c.arc(w/2,h/2,80,0,Math.PI*2);c.stroke();
+}
+
+async function enterPiP(){
+  // 优先 Document PiP (Chrome 111+)
+  if('documentPictureInPicture' in window){
+    try{
+      const pw=await documentPictureInPicture.requestWindow({width:180,height:180});
+      pw.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at center,#1e1b4b 0%,#0d0d1a 100%)}
+#d-emoji{font-size:72px;line-height:1;text-align:center;transition:transform .2s}
+#d-label{font-size:15px;font-weight:600;color:#e0e0e0;margin-top:8px;text-align:center}
+</style></head><body><div><div id="d-emoji">${S.pipEmoji}</div><div id="d-label">${S.pipLabel}</div></div></body></html>`);
+      pw.document.close();
+      S.pipMode='document';S.pipWindow=pw;
+      pw.addEventListener('pagehide',()=>{S.pipWindow=null;S.pipMode=null;if(S.isReading)setTimeout(enterPiP,600);});
+      return;
+    }catch(e){/* fall through to video PiP */}
+  }
+  // Video PiP (Safari / Firefox / Chrome without docPiP)
+  ensurePiPElements();
+  drawPiPFrame();
+  try{
+    await S.pipVideo.requestPictureInPicture();
+    S.pipMode='video';
+  }catch(e){/* 用户取消或浏览器不支持 */}
+}
+
+async function exitPiP(){
+  if(S.pipMode==='document'&&S.pipWindow){
+    try{S.pipWindow.close()}catch(e){}
+    S.pipWindow=null;S.pipMode=null;return;
+  }
+  if(document.pictureInPictureElement){
+    try{await document.exitPictureInPicture()}catch(e){}
+  }
+  S.pipMode=null;
+}
+
+function updatePiP(emoji,label,color){
+  S.pipEmoji=emoji;S.pipLabel=label;S.pipColor=color;
+  // Document PiP
+  if(S.pipMode==='document'&&S.pipWindow){
+    try{
+      S.pipWindow.document.getElementById('d-emoji').textContent=emoji;
+      S.pipWindow.document.getElementById('d-label').textContent=label;
+      S.pipWindow.document.querySelector('body').style.background='radial-gradient(circle at center, '+color+'33 0%, #0d0d1a 100%)';
+    }catch(e){}
+  }
+  // Video PiP — update canvas frame
+  if(S.pipMode==='video'||(S.isReading&&!S.pipMode)){
+    drawPiPFrame();
+  }
+}
+
+/* ============================================================
+   BUBBLE ENCOURAGEMENT
+   ============================================================ */
+const BUBBLE_MSGS={
+  frowning: ['坚持下来就好了','别急，慢一点也没关系','深呼吸，调整一下','书难读，但你在成长','皱眉的时候也是在思考'],
+  confused: ['慢慢理解，不着急','困惑是理解的开始','再读一遍就懂了','思考中…找找线索'],
+  sad: ['有些文字就是触动人心','感受它，没关系的','共情是一种力量'],
+  smiling: ['看来这里很有趣！','阅读的快乐 😊','享受这一刻','书中自有黄金屋'],
+  surprised: ['哇，有新发现！','惊喜时刻！','意想不到的收获'],
+  focused: ['你进入了心流状态','专注的你最棒','完全沉浸在书中了','此刻无人能打扰你'],
+  neutral: ['保持状态，慢慢来','稳稳地读下去'],
+};
+let _bubbleCD={};
+let _lastBubble=0;
+
+function spawnBubble(emotion){
+  const now=Date.now();
+  if(now-_lastBubble<8000)return;
+  if(now-(_bubbleCD[emotion]||0)<20000)return;
+  const msgs=BUBBLE_MSGS[emotion];
+  if(!msgs||!msgs.length)return;
+  _bubbleCD[emotion]=now;
+  _lastBubble=now;
+  const msg=msgs[Math.floor(Math.random()*msgs.length)];
+  const e=EM[emotion];
+  const b=document.createElement('div');
+  b.className='bubble';
+  b.textContent=e.emoji+' '+msg;
+  b.style.background=e.color+'18';
+  b.style.color=e.color;
+  b.style.borderColor=e.color+'33';
+  const ring=D.mirrorRing.getBoundingClientRect();
+  const x=ring.left+ring.width/2+(Math.random()-.5)*100;
+  const y=ring.top-16;
+  b.style.left=x+'px';b.style.top=y+'px';
+  document.getElementById('bubble-container').appendChild(b);
+  b.addEventListener('animationend',()=>b.remove());
 }
 
 /* ============================================================
@@ -557,7 +718,7 @@ function detectFace(){
   }
   if(!S.calibrated)return;
   const expr=detectExpression(m,S.baseline);
-  if(S.isReading){const prev=S.cur.emotion;S.cur=expr;if(prev!==expr.emotion&&expr.intensity>.3)S.feedbackCount++;if(expr.intensity>.15)spawnParticles(expr.emotion,expr.intensity)}
+  if(S.isReading){const prev=S.cur.emotion;S.cur=expr;if(expr.intensity>.15)spawnParticles(expr.emotion,expr.intensity);if(expr.intensity>.35&&prev!==expr.emotion&&['frowning','confused','sad','smiling','surprised','focused'].includes(expr.emotion))spawnBubble(expr.emotion)}
   updateUI(expr);
 }
 
@@ -570,6 +731,7 @@ function updateUI(expr){
   D.emotionLabel.textContent=e.label;D.emotionLabel.style.color=e.color;
   D.statusEmo.textContent=e.emoji;D.statusLabel.textContent=e.label;
   D.emoBadge.style.borderColor=e.color;D.emoBadge.style.boxShadow='0 0 10px '+e.color+'33';
+  updatePiP(e.emoji,e.label,e.color);
 }
 
 /* ============================================================
@@ -585,20 +747,20 @@ function stopLoop(){if(_loopId){clearInterval(_loopId);_loopId=null}}
    ============================================================ */
 function startReading(){
   if(!S.calibrated){toast('⚠️ 请等待校准完成');return}
-  S.isReading=true;S.sessionStart=Date.now();S.sessionSeconds=0;S.emotionHistory=[];S.feedbackCount=0;
+  S.isReading=true;S.sessionStart=Date.now();S.sessionSeconds=0;S.emotionHistory=[];
   S.cur={emotion:'neutral',intensity:0,confidence:0};
   D.btnRead.textContent='⏹ 结束阅读';D.btnRead.className='stop';D.emotionSub.textContent='正在陪伴中…';
   if(S.cameraOn)D.video.classList.remove('hidden');
   S.timerInt=setInterval(()=>{S.sessionSeconds++;updateTimer();sampleEmotion()},1000);
-  startLoop();toast('📖 阅读开始！');
+  startLoop();enterPiP();toast('📖 阅读开始！灵动岛已开启 🏝️');
 }
 function stopReading(){
   if(!S.isReading)return;S.isReading=false;
   const mins=Math.round(S.sessionSeconds/60*10)/10;
-  clearInterval(S.timerInt);S.timerInt=null;stopLoop();
+  clearInterval(S.timerInt);S.timerInt=null;stopLoop();exitPiP();
   D.btnRead.textContent='▶ 开始阅读';D.btnRead.className='start';D.emotionSub.textContent='可以再次开始';
   if(S.emotionHistory.length>0){const d=genDiary(mins);saveDiary(d);showDetail(d);toast('📔 日记已生成！')}else toast('📖 阅读结束');
-  S.sessionSeconds=0;S.feedbackCount=0;S.emotionHistory=[];S.cur={emotion:'neutral',intensity:0,confidence:0};
+  S.sessionSeconds=0;S.emotionHistory=[];S.cur={emotion:'neutral',intensity:0,confidence:0};
   updateTimer();updateUI(S.cur);
 }
 function sampleEmotion(){const{emotion,intensity,confidence}=S.cur;S.emotionHistory.push({second:S.sessionSeconds,emotion,intensity,confidence})}
@@ -615,7 +777,7 @@ function genDiary(mins){
   for(let i=0;i<h.length;i++){const end=h[i].second,start=end-WIN;const ws=h.filter(s=>s.second>=start&&s.second<=end);const neg=ws.filter(s=>s.emotion==='frowning'||s.emotion==='confused'||s.emotion==='sad').length;if(neg>mx&&ws.length>10){mx=neg;const nw=ws.filter(s=>s.emotion==='frowning'||s.emotion==='confused'||s.emotion==='sad');hardest={time:Math.round(start/60),emotion:nw.filter(s=>s.emotion==='frowning').length>=nw.length/2?'frowning':(nw.filter(s=>s.emotion==='sad').length>=nw.length/2?'sad':'confused'),pct:Math.round(neg/ws.length*100)}}}
   let best=0,cur=0;for(const s of h){if(s.emotion==='neutral'||s.emotion==='focused'||s.emotion==='confused'){cur++;best=Math.max(best,cur)}else cur=0}
   const focus=Math.round(best/60*10)/10,enc=genEnc(pct,mins,hardest,focus);
-  return{id:new Date().toISOString().replace(/[:.]/g,'-'),date:fmt(new Date()),timestamp:Date.now(),durationMinutes:mins,emotionDistribution:pct,hardestMoment:hardest,feedbackTriggerCount:S.feedbackCount,longestFocusMinutes:focus,encouragementText:enc};
+  return{id:new Date().toISOString().replace(/[:.]/g,'-'),date:fmt(new Date()),timestamp:Date.now(),durationMinutes:mins,emotionDistribution:pct,hardestMoment:hardest,longestFocusMinutes:focus,encouragementText:enc};
 }
 function genEnc(pct,mins,hardest,focus){
   const t=[];
@@ -632,18 +794,16 @@ function genEnc(pct,mins,hardest,focus){
 /* ============================================================
    STORAGE
    ============================================================ */
-const KD='em4_d',KS='em4_s',KC='em4_c';
-function saveDiary(d){const l=loadDiaries();l.unshift(d);try{localStorage.setItem(KD,JSON.stringify(l))}catch(e){l.pop();localStorage.setItem(KD,JSON.stringify(l));toast('⚠️ 存储空间不足')}updateStats(d)}
+const KD='em4_d',KC='em4_c';
+function saveDiary(d){const l=loadDiaries();l.unshift(d);try{localStorage.setItem(KD,JSON.stringify(l))}catch(e){l.pop();localStorage.setItem(KD,JSON.stringify(l));toast('⚠️ 存储空间不足')}}
 function loadDiaries(){try{return JSON.parse(localStorage.getItem(KD))||[]}catch(e){return[]}}
 function deleteDiary(id){localStorage.setItem(KD,JSON.stringify(loadDiaries().filter(d=>d.id!==id)));renderDiaryList();toast('🗑 已删除')}
 function exportDiary(diary,fmt){
-  let c,fn,m;if(fmt==='json'){c=JSON.stringify(diary,null,2);fn='diary-'+diary.id+'.json';m='application/json'}else{const d=diary.emotionDistribution;c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 🎭 情绪\n'+EKEYS.map(k=>'| '+EM[k].emoji+' '+EM[k].label+' | '+(d[k]||0)+'% |').join('\n')+'\n\n💪 最难: 第 '+diary.hardestMoment.time+' 分钟\n🤝 反馈 '+diary.feedbackTriggerCount+' 次 · 专注 '+diary.longestFocusMinutes+' 分钟\n\n> '+diary.encouragementText+'\n';fn='diary-'+diary.id+'.md';m='text/markdown'}
+  let c,fn,m;if(fmt==='json'){c=JSON.stringify(diary,null,2);fn='diary-'+diary.id+'.json';m='application/json'}else{const d=diary.emotionDistribution;c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 🎭 情绪\n'+EKEYS.map(k=>'| '+EM[k].emoji+' '+EM[k].label+' | '+(d[k]||0)+'% |').join('\n')+'\n\n💪 最难: 第 '+diary.hardestMoment.time+' 分钟\n📚 专注 '+diary.longestFocusMinutes+' 分钟\n\n> '+diary.encouragementText+'\n';fn='diary-'+diary.id+'.md';m='text/markdown'}
   const b=new Blob([c],{type:m}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+fmt.toUpperCase())
 }
 function exportAllDiaries(){const l=loadDiaries();if(!l.length){toast('📭 没有日记');return}const b=new Blob([JSON.stringify(l,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='all-diaries-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+l.length+' 篇')}
-function clearAllData(){if(confirm('删除所有数据？')){localStorage.removeItem(KD);localStorage.removeItem(KS);S.dailyFrowns=0;D.frowns.textContent='0';renderDiaryList();toast('🗑 已清除')}}
-function updateStats(diary){const today=new Date().toISOString().slice(0,10);let s={};try{s=JSON.parse(localStorage.getItem(KS))||{}}catch(e){}if(!s[today])s[today]={f:0,ss:0,m:0};s[today].f+=Math.round(((diary.emotionDistribution.frowning||0)+(diary.emotionDistribution.sad||0))*diary.durationMinutes/100*2);s[today].ss++;s[today].m+=diary.durationMinutes;const keys=Object.keys(s).sort();while(keys.length>90)delete s[keys.shift()];localStorage.setItem(KS,JSON.stringify(s));S.dailyFrowns=Math.max(S.dailyFrowns,s[today].f);D.frowns.textContent=S.dailyFrowns}
-function loadDailyStats(){const today=new Date().toISOString().slice(0,10);try{const s=JSON.parse(localStorage.getItem(KS))||{};if(s[today]){S.dailyFrowns=s[today].f||0;D.frowns.textContent=S.dailyFrowns}}catch(e){}}
+function clearAllData(){if(confirm('删除所有数据？')){localStorage.removeItem(KD);renderDiaryList();toast('🗑 已清除')}}
 
 /* ============================================================
    UI
@@ -663,7 +823,7 @@ function renderDiaryList(){
 }
 function showDetail(diary){
   const d=diary.emotionDistribution,b=D.modalBox,bk=D.modalBack;
-  b.innerHTML='<h4>📔 '+diary.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+diary.durationMinutes+' 分钟</p><div>'+EKEYS.map(k=>'<div class="emo-row"><span>'+EM[k].emoji+' '+EM[k].label+'</span><div class="track"><div class="fill" style="width:'+(d[k]||0)+'%;background:'+EM[k].color+';"></div></div><span style="font-size:11px;color:var(--text-muted);">'+(d[k]||0)+'%</span></div>').join('')+'</div><p style="font-size:12px;color:var(--text-muted);margin-top:10px;">💪 最难: 第 '+diary.hardestMoment.time+' 分钟 · '+EM[diary.hardestMoment.emotion]?.label+'</p><p style="font-size:12px;color:var(--text-muted);">🤝 反馈 '+diary.feedbackTriggerCount+' 次 · 专注 '+diary.longestFocusMinutes+' 分钟</p><p style="font-size:12px;color:var(--accent);font-style:italic;margin-top:8px;">💬 '+diary.encouragementText+'</p><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
+  b.innerHTML='<h4>📔 '+diary.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+diary.durationMinutes+' 分钟</p><div>'+EKEYS.map(k=>'<div class="emo-row"><span>'+EM[k].emoji+' '+EM[k].label+'</span><div class="track"><div class="fill" style="width:'+(d[k]||0)+'%;background:'+EM[k].color+';"></div></div><span style="font-size:11px;color:var(--text-muted);">'+(d[k]||0)+'%</span></div>').join('')+'</div><p style="font-size:12px;color:var(--text-muted);margin-top:10px;">💪 最难: 第 '+diary.hardestMoment.time+' 分钟 · '+EM[diary.hardestMoment.emotion]?.label+'</p><p style="font-size:12px;color:var(--text-muted);">📚 专注 '+diary.longestFocusMinutes+' 分钟</p><p style="font-size:12px;color:var(--accent);font-style:italic;margin-top:8px;">💬 '+diary.encouragementText+'</p><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
   bk.classList.add('open');
   $('#m-close').onclick=()=>bk.classList.remove('open');$('#m-json').onclick=()=>exportDiary(diary,'json');
   $('#m-md').onclick=()=>exportDiary(diary,'md');$('#m-del').onclick=()=>{if(confirm('删除？')){deleteDiary(diary.id);bk.classList.remove('open')}};
@@ -706,7 +866,7 @@ function bindEvents(){
   document.onkeydown=e=>{if(e.key==='Escape'){$$('.panel.open').forEach(p=>p.classList.remove('open'));$$('.panel-back.open').forEach(b=>b.classList.remove('open'));D.modalBack.classList.remove('open')}};
 }
 
-document.addEventListener('visibilitychange',()=>{S.visible=!document.hidden;if(document.hidden)stopLoop();else if(S.isReading||S.calibrating)startLoop()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&!S.pipMode)S.visible=false;else if(!document.hidden)S.visible=true});
 window.addEventListener('beforeunload',()=>{if(S.isReading&&S.emotionHistory.length>10){saveDiary(genDiary(Math.round(S.sessionSeconds/60*10)/10))}});
 
 /* ============================================================
@@ -714,7 +874,7 @@ window.addEventListener('beforeunload',()=>{if(S.isReading&&S.emotionHistory.len
    ============================================================ */
 async function init(){
   setupCanvas();S.animId=requestAnimationFrame(particleLoop);
-  loadSettings();loadDailyStats();bindEvents();
+  loadSettings();bindEvents();
   const camOk=await setupCamera();if(!camOk)return;
   D.calOverlay.classList.add('show');D.calBarFill.style.width='0%';D.calText.textContent='正在下载模型…';
   const flOk=await setupFL();if(!flOk)return;
