@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>表情镜 v3.0 — 陪伴式专注</title>
+<title>表情镜 v4.0 — 翻转陪伴</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -16,19 +16,21 @@
   --shadow:0 8px 40px rgba(0,0,0,.5);
   --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --transition:.35s cubic-bezier(.4,0,.2,1);
-  /* Status dot colors */
   --dot-calm:#60a5fa;--dot-smile:#fbbf24;--dot-frown:#f59e0b;--dot-neutral:#60a5fa;
+  --progress-stroke:#7dd3c0;
 }
 [data-theme="light"]{
   --bg:#f0efe8;--bg-panel:#fff;--bg-card:#f8f8f5;
   --text:#2c2c2c;--text-muted:#999;
   --border:rgba(0,0,0,.06);--shadow:0 8px 40px rgba(0,0,0,.1);
   --dot-calm:#3b82f6;--dot-smile:#d97706;--dot-frown:#ea580c;--dot-neutral:#3b82f6;
+  --progress-stroke:#0d9488;
 }
 [data-theme="warm"]{
   --bg:#1b1410;--bg-panel:#2a1f18;--bg-card:#1f1812;
   --text:#e8d5c0;--text-muted:#9b8c7c;
   --border:rgba(255,255,255,.04);
+  --progress-stroke:#7dd3c0;
 }
 
 body{
@@ -48,58 +50,137 @@ body{
 }
 
 /* ============================================================
+   White Noise Bar
+   ============================================================ */
+#soundbar{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 16px;justify-content:center;
+  background:rgba(255,255,255,.02);
+  border-bottom:1px solid var(--border);
+  z-index:20;flex-shrink:0;
+  transition:background var(--transition);
+}
+.sound-btn{
+  background:transparent;border:1px solid var(--border);
+  border-radius:16px;padding:4px 12px;
+  color:var(--text-muted);font-size:11px;
+  cursor:pointer;transition:all .3s;
+  display:flex;align-items:center;gap:4px;
+  font-family:var(--font-ui);
+}
+.sound-btn.active{border-color:var(--progress-stroke);color:var(--progress-stroke);background:rgba(125,211,192,.08)}
+.sound-btn:hover{border-color:rgba(255,255,255,.2)}
+.sound-btn .s-icon{font-size:14px}
+#sound-vol{width:60px;accent-color:var(--progress-stroke);height:3px;cursor:pointer}
+#sound-vol-label{font-size:9px;color:var(--text-muted);min-width:22px;text-align:right}
+
+/* ============================================================
    Main Stage
    ============================================================ */
 #main-stage{
   flex:1;display:flex;align-items:center;justify-content:center;
-  padding:20px;position:relative;z-index:10;overflow-y:auto;
+  padding:16px;position:relative;z-index:10;overflow-y:auto;
+  perspective:1200px;
 }
 #stage-inner{
   display:flex;flex-direction:column;align-items:center;
-  gap:16px;width:100%;max-width:420px;
+  gap:12px;width:100%;max-width:420px;
 }
 
-/* ---- Focus Ring (breathing circle) ---- */
-#focus-ring{width:220px;height:220px;flex-shrink:0;position:relative}
-#focus-ring svg{width:100%;height:100%}
-#focus-ring #breath-track{
-  fill:none;stroke:var(--border);stroke-width:2;
+/* ============================================================
+   3D Flip Card
+   ============================================================ */
+#flip-scene{width:280px;height:280px;flex-shrink:0}
+.flip-card{
+  width:100%;height:100%;position:relative;
+  transform-style:preserve-3d;
+  transition:transform .8s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;border-radius:50%;
 }
-#focus-ring #breath-circle{
-  fill:none;stroke:var(--dot-calm);stroke-width:2.5;
-  stroke-linecap:round;stroke-linejoin:round;
-  filter:drop-shadow(0 0 6px var(--dot-calm));
-  transition:stroke 5s ease,filter 5s ease;
-}
-#focus-ring.reading #breath-circle{
-  animation:breathe 6s ease-in-out infinite;
-}
-#focus-ring.smiling #breath-circle{stroke:var(--dot-smile);filter:drop-shadow(0 0 8px var(--dot-smile))}
-#focus-ring.frowning #breath-circle{stroke:var(--dot-frown);filter:drop-shadow(0 0 8px var(--dot-frown))}
-@keyframes breathe{
-  0%,100%{r:80}
-  50%{r:70}
-}
-#timer-display{
-  fill:var(--text);font-size:28px;font-weight:200;
-  font-family:var(--font-ui);letter-spacing:2px;
-}
-#ring-status-text{
-  fill:var(--text-muted);font-size:9px;font-weight:400;
-  letter-spacing:1px;text-transform:uppercase;
+.flip-card.flipped{transform:rotateY(180deg)}
+.flip-face{
+  position:absolute;inset:0;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border-radius:50%;overflow:hidden;
+  box-shadow:0 0 50px rgba(0,0,0,.4),0 0 0 2px var(--border);
 }
 
-/* ---- Action info ---- */
+/* === FRONT FACE: Pomodoro timer === */
+.flip-front{
+  background:#1a1a1a;
+  display:flex;align-items:center;justify-content:center;
+  border:3px solid rgba(255,255,255,.06);
+}
+.flip-front svg{
+  position:absolute;width:100%;height:100%;
+  transform:rotate(-90deg);
+}
+#progress-bg{
+  fill:none;stroke:rgba(255,255,255,.04);stroke-width:3;
+}
+#progress-fill{
+  fill:none;stroke:var(--progress-stroke);stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:879;stroke-dashoffset:879;
+  transition:stroke-dashoffset 1s linear;
+}
+#front-timer{
+  font-size:42px;font-weight:200;color:#e5e5e5;
+  letter-spacing:2px;font-variant-numeric:tabular-nums;
+  z-index:2;text-align:center;
+}
+#front-status{
+  font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;
+  font-weight:300;letter-spacing:1px;text-align:center;z-index:2;
+  position:absolute;top:62%;left:0;right:0;
+}
+#front-content{display:flex;flex-direction:column;align-items:center;z-index:2}
+
+/* === BACK FACE: Camera mirror === */
+.flip-back{
+  background:#000;
+  border:1.5px solid rgba(255,255,255,.08);
+  transform:rotateY(180deg);
+}
+.flip-back video{
+  width:100%;height:100%;object-fit:cover;
+  transform:scaleX(-1);
+  filter:blur(.3px) saturate(.8) contrast(.95) brightness(1.1);
+}
+#mood-glow{
+  position:absolute;inset:0;border-radius:50%;
+  box-shadow:inset 0 0 80px rgba(96,165,250,.12);
+  pointer-events:none;z-index:2;
+  transition:box-shadow 5s ease;
+}
+#mood-glow.smiling{box-shadow:inset 0 0 80px rgba(251,191,36,.18)}
+#mood-glow.frowning{box-shadow:inset 0 0 80px rgba(245,158,11,.14)}
+.flip-back .back-hint{
+  position:absolute;bottom:22px;left:0;right:0;text-align:center;
+  font-size:10px;color:rgba(255,255,255,.25);
+  font-weight:300;opacity:0;transition:opacity .6s;z-index:3;
+  pointer-events:none;
+}
+.flip-card:hover .back-hint,.flip-card.flipped .back-hint{opacity:1}
+
+/* Flip hint below */
+#flip-hint{
+  text-align:center;font-size:11px;color:rgba(255,255,255,.2);
+  font-weight:300;transition:opacity .5s;margin-top:-4px;
+  height:16px;
+}
+
+/* ============================================================
+   Action info & buttons
+   ============================================================ */
 #action-info{text-align:center}
-#action-info .main-label{font-size:18px;font-weight:600;letter-spacing:1px;transition:color .3s}
-#action-info .sub-label{font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.5}
-
-/* ---- Manual Action Buttons ---- */
-#manual-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#action-info .main-label{font-size:16px;font-weight:600;letter-spacing:1px;transition:color .3s}
+#action-info .sub-label{font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.5}
+#manual-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .act-btn{
-  padding:8px 16px;border-radius:20px;border:1px solid var(--border);
+  padding:7px 14px;border-radius:18px;border:1px solid var(--border);
   background:var(--bg-panel);color:var(--text);
-  font-size:13px;font-weight:500;cursor:pointer;
+  font-size:12px;font-weight:500;cursor:pointer;
   font-family:var(--font-ui);
   transition:all var(--transition);
   white-space:nowrap;
@@ -109,8 +190,6 @@ body{
 .act-btn.frown:hover{background:var(--dot-frown);color:#000;border-color:var(--dot-frown)}
 .act-btn.smile:hover{background:var(--dot-smile);color:#000;border-color:var(--dot-smile)}
 .act-btn.note:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-
-/* ---- Inline note input ---- */
 #note-input-row{display:none;width:100%;gap:6px}
 #note-input-row.show{display:flex}
 #note-input-row input{
@@ -126,54 +205,30 @@ body{
 }
 
 /* ============================================================
-   Self-view video (bottom-right, WeChat-style)
-   ============================================================ */
-#self-video-wrap{
-  position:fixed;bottom:74px;right:16px;z-index:25;
-  display:none;overflow:hidden;
-  border-radius:14px;width:110px;height:150px;
-  border:1.5px solid rgba(255,255,255,.15);
-  box-shadow:0 4px 24px rgba(0,0,0,.45);
-  background:#000;
-  transition:opacity .4s,transform .4s;
-}
-#self-video-wrap.active{display:block}
-#self-video-wrap video{
-  width:100%;height:100%;object-fit:cover;
-  transform:scaleX(-1);
-}
-#self-video-wrap .sv-label{
-  position:absolute;bottom:4px;left:0;right:0;text-align:center;
-  font-size:9px;color:rgba(255,255,255,.5);
-  text-shadow:0 1px 2px rgba(0,0,0,.8);
-  pointer-events:none;z-index:2;
-}
-
-/* ============================================================
    Status Dot (bottom-left corner)
    ============================================================ */
 #status-dot-wrap{
-  position:fixed;bottom:70px;left:20px;z-index:25;
-  display:none;align-items:center;gap:8px;
+  position:fixed;bottom:68px;left:16px;z-index:25;
+  display:none;align-items:center;gap:7px;
 }
 #status-dot-wrap.active{display:flex}
 #status-dot{
-  width:10px;height:10px;border-radius:50%;
+  width:8px;height:8px;border-radius:50%;
   background:var(--dot-calm);
-  box-shadow:0 0 14px var(--dot-calm),0 0 28px var(--dot-calm);
+  box-shadow:0 0 12px var(--dot-calm),0 0 24px var(--dot-calm);
   transition:background 5s ease,box-shadow 5s ease;
 }
-#status-dot.smiling{background:var(--dot-smile);box-shadow:0 0 16px var(--dot-smile),0 0 32px var(--dot-smile)}
-#status-dot.frowning{background:var(--dot-frown);box-shadow:0 0 16px var(--dot-frown),0 0 32px var(--dot-frown)}
+#status-dot.smiling{background:var(--dot-smile);box-shadow:0 0 14px var(--dot-smile),0 0 28px var(--dot-smile)}
+#status-dot.frowning{background:var(--dot-frown);box-shadow:0 0 14px var(--dot-frown),0 0 28px var(--dot-frown)}
 #status-dot-tip{
-  font-size:10px;color:var(--text-muted);opacity:0;
+  font-size:9px;color:var(--text-muted);opacity:0;
   transition:opacity .6s;white-space:nowrap;
   pointer-events:none;
 }
 #status-dot-wrap:hover #status-dot-tip{opacity:1}
 
 /* ============================================================
-   Summary Overlay (post-focus)
+   Summary Overlay
    ============================================================ */
 #summary-overlay{
   position:fixed;inset:0;z-index:50;
@@ -191,45 +246,27 @@ body{
   box-shadow:var(--shadow);border:1px solid var(--border);
   transition:background var(--transition);
 }
-#summary-scroll h3{
-  font-size:17px;font-weight:600;margin-bottom:4px;
-  letter-spacing:.5px;
-}
-#summary-scroll .s-date{
-  font-size:11px;color:var(--text-muted);margin-bottom:20px;
-}
+#summary-scroll h3{font-size:17px;font-weight:600;margin-bottom:4px;letter-spacing:.5px}
+#summary-scroll .s-date{font-size:11px;color:var(--text-muted);margin-bottom:20px}
 #summary-scroll .s-section-label{
   font-size:10px;font-weight:600;color:var(--text-muted);
-  text-transform:uppercase;letter-spacing:1px;
-  margin:20px 0 8px;
+  text-transform:uppercase;letter-spacing:1px;margin:20px 0 8px;
 }
 #summary-scroll .s-section-label:first-of-type{margin-top:0}
-
-/* Emotion curve canvas */
 #emotion-curve{
-  width:100%;height:200px;
-  border-radius:var(--radius-sm);
-  background:var(--bg-card);
-  border:1px solid var(--border);
+  width:100%;height:200px;border-radius:var(--radius-sm);
+  background:var(--bg-card);border:1px solid var(--border);
 }
-#emotion-curve-hint{
-  text-align:center;font-size:10px;color:var(--text-muted);
-  margin-top:4px;
-}
-
-/* Data cards */
+#emotion-curve-hint{text-align:center;font-size:10px;color:var(--text-muted);margin-top:4px}
 .s-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .s-card{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:14px;
-  text-align:center;
+  border-radius:var(--radius-sm);padding:14px;text-align:center;
 }
 .s-card .s-card-icon{font-size:28px;margin-bottom:6px}
 .s-card .s-card-num{font-size:22px;font-weight:700;letter-spacing:.5px}
 .s-card .s-card-label{font-size:10px;color:var(--text-muted);margin-top:3px}
 .s-card .s-card-compare{font-size:10px;color:var(--accent);margin-top:4px;font-style:italic}
-
-/* Encouragement block */
 .s-encourage{
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius-sm);padding:18px;
@@ -237,26 +274,17 @@ body{
   color:var(--text);font-style:italic;
 }
 .s-encourage::before{content:'💬 ';font-style:normal}
-
-/* Timeline mini */
 .s-timeline{max-height:180px;overflow-y:auto}
-.s-tl-item{
-  display:flex;align-items:center;gap:8px;
-  padding:4px 0;border-bottom:1px solid var(--border);
-  font-size:11px;
-}
+.s-tl-item{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
 .s-tl-item:last-child{border-bottom:none}
 .s-tl-item .s-tl-time{color:var(--text-muted);font-size:10px;white-space:nowrap;min-width:32px}
 .s-tl-item .s-tl-icon{font-size:14px;min-width:20px;text-align:center}
 .s-tl-item .s-tl-text{flex:1}
-
-/* Summary actions */
 .s-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;justify-content:center}
 .s-actions button{
   padding:8px 20px;border-radius:20px;border:1px solid var(--border);
   background:var(--bg-card);color:var(--text);cursor:pointer;
-  font-size:12px;font-family:var(--font-ui);
-  transition:all var(--transition);
+  font-size:12px;font-family:var(--font-ui);transition:all var(--transition);
 }
 .s-actions button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 .s-actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -265,19 +293,16 @@ body{
    Status Bar
    ============================================================ */
 #status-bar{
-  height:54px;display:flex;align-items:center;
-  padding:0 18px;gap:14px;
+  height:50px;display:flex;align-items:center;
+  padding:0 14px;gap:12px;
   background:var(--bg-panel);border-top:1px solid var(--border);
   z-index:20;transition:background var(--transition);flex-shrink:0;
 }
-#status-bar .stat{
-  font-size:11px;color:var(--text-muted);
-  display:flex;align-items:center;gap:4px;
-}
+#status-bar .stat{font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
 #status-bar .spacer{flex:1}
 #btn-read{
-  padding:7px 24px;border-radius:22px;border:none;
-  font-size:14px;font-weight:600;cursor:pointer;
+  padding:7px 22px;border-radius:20px;border:none;
+  font-size:13px;font-weight:600;cursor:pointer;
   font-family:var(--font-ui);letter-spacing:.5px;
   transition:all var(--transition);white-space:nowrap;
 }
@@ -286,16 +311,16 @@ body{
 #btn-read:hover{transform:translateY(-1px)}
 #btn-read:active{transform:scale(.97)}
 .icon-btn{
-  width:36px;height:36px;border-radius:50%;
+  width:34px;height:34px;border-radius:50%;
   border:1px solid var(--border);background:transparent;
-  color:var(--text);cursor:pointer;font-size:17px;
+  color:var(--text);cursor:pointer;font-size:16px;
   display:flex;align-items:center;justify-content:center;
   transition:all var(--transition);
 }
 .icon-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
 /* ============================================================
-   Panels (settings, diary)
+   Panels
    ============================================================ */
 .panel-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;opacity:0;pointer-events:none;transition:opacity .3s}
 .panel-back.open{opacity:1;pointer-events:auto}
@@ -315,8 +340,6 @@ body{
 .panel-head .close{width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px}
 .panel-head .close:hover{background:var(--danger);color:#fff}
 .panel-body{flex:1;overflow-y:auto;padding:16px 18px}
-
-/* Settings */
 .set-item{margin-bottom:18px}
 .set-item label{display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .set-item input[type=range]{width:100%;accent-color:var(--accent)}
@@ -325,8 +348,7 @@ body{
 .set-item select{
   width:100%;padding:8px 12px;border-radius:var(--radius-sm);
   border:1px solid var(--border);background:var(--bg);
-  color:var(--text);font-size:13px;font-family:var(--font-ui);
-  outline:none;
+  color:var(--text);font-size:13px;font-family:var(--font-ui);outline:none;
 }
 .theme-row{display:flex;gap:7px}
 .theme-opt{flex:1;padding:9px 4px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;text-align:center;font-size:11px;transition:all var(--transition)}
@@ -358,13 +380,7 @@ body{
 .modal-box .m-btns button{padding:7px 16px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;font-size:12px;transition:all var(--transition)}
 .modal-box .m-btns button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 .modal-box .m-btns button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-
-/* Timeline items (used in diary detail modal) */
-.tl-item{
-  display:flex;align-items:center;gap:8px;
-  padding:5px 0;border-bottom:1px solid var(--border);
-  font-size:12px;
-}
+.tl-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .tl-item:last-child{border-bottom:none}
 .tl-item .tl-time{color:var(--text-muted);font-size:11px;white-space:nowrap;min-width:36px}
 .tl-item .tl-icon{font-size:16px;min-width:22px;text-align:center}
@@ -374,22 +390,22 @@ body{
 #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);padding:9px 22px;border-radius:20px;background:var(--bg-panel);color:var(--text);font-size:13px;box-shadow:var(--shadow);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;border:1px solid var(--border)}
 #toast.show{opacity:1}
 
-/* Scrollbar */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
 
-/* Responsive */
 @media(max-width:768px){
-  #focus-ring{width:170px;height:170px}
-  #timer-display{font-size:22px}
-  #status-bar{padding:0 10px;gap:8px;height:46px}
+  #flip-scene{width:220px;height:220px}
+  #front-timer{font-size:34px}
+  #soundbar{gap:3px;padding:6px 10px}
+  .sound-btn{padding:3px 10px;font-size:10px}
+  #status-bar{padding:0 8px;gap:6px;height:46px}
   .panel{width:100vw;max-width:100vw}
-  #stage-inner{gap:10px}
+  #stage-inner{gap:8px}
   #summary-scroll{padding:24px 16px}
   #emotion-curve{height:150px}
   .s-cards{grid-template-columns:repeat(3,1fr)}
-  #status-dot-wrap{bottom:58px;left:12px}
+  #status-dot-wrap{bottom:56px;left:10px}
 }
 </style>
 </head>
@@ -398,25 +414,45 @@ body{
 <!-- Hidden video for MediaPipe processing only -->
 <video id="video" autoplay playsinline></video>
 
-<!-- Self-view floating window (bottom-right, WeChat-style) -->
-<div id="self-video-wrap">
-  <video id="self-video" autoplay playsinline muted></video>
-  <span class="sv-label">我</span>
+<!-- White Noise Bar -->
+<div id="soundbar">
+  <button class="sound-btn active" data-sound="rain"><span class="s-icon">🌧️</span>雨声</button>
+  <button class="sound-btn" data-sound="cafe"><span class="s-icon">☕</span>咖啡馆</button>
+  <button class="sound-btn" data-sound="forest"><span class="s-icon">🌲</span>森林</button>
+  <button class="sound-btn" data-sound="silence"><span class="s-icon">🔇</span>安静</button>
+  <input type="range" id="sound-vol" min="0" max="100" value="25">
+  <span id="sound-vol-label">25%</span>
 </div>
 
 <!-- Main Stage -->
 <div id="main-stage">
   <div id="stage-inner">
 
-    <!-- Focus Ring (breathing circle + timer) -->
-    <div id="focus-ring">
-      <svg viewBox="0 0 200 200">
-        <circle id="breath-track" cx="100" cy="100" r="80"/>
-        <circle id="breath-circle" cx="100" cy="100" r="80"/>
-        <text id="timer-display" x="100" y="98" text-anchor="middle" dominant-baseline="central">25:00</text>
-        <text id="ring-status-text" x="100" y="128" text-anchor="middle">等待开始</text>
-      </svg>
+    <!-- 3D Flip Card -->
+    <div id="flip-scene">
+      <div class="flip-card" id="flipCard">
+        <!-- Front: Pomodoro timer -->
+        <div class="flip-face flip-front">
+          <svg viewBox="0 0 280 280">
+            <circle id="progress-bg" cx="140" cy="140" r="135"/>
+            <circle id="progress-fill" cx="140" cy="140" r="135"/>
+          </svg>
+          <div id="front-content">
+            <div id="front-timer">25:00</div>
+          </div>
+          <div id="front-status">等待开始</div>
+        </div>
+        <!-- Back: Camera mirror -->
+        <div class="flip-face flip-back">
+          <video id="flip-video" autoplay playsinline muted></video>
+          <div id="mood-glow"></div>
+          <div class="back-hint">正在陪伴你</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Flip hint -->
+    <div id="flip-hint">点击圆环，看看自己</div>
 
     <!-- Action info -->
     <div id="action-info">
@@ -440,13 +476,13 @@ body{
   </div>
 </div>
 
-<!-- Status dot (bottom-left corner) -->
+<!-- Status dot -->
 <div id="status-dot-wrap">
   <div id="status-dot"></div>
   <span id="status-dot-tip">正在陪伴你</span>
 </div>
 
-<!-- Summary overlay (post-focus) -->
+<!-- Summary overlay -->
 <div class="modal-back" id="summary-overlay">
   <div id="summary-scroll">
     <h3 id="summary-title"></h3>
@@ -549,9 +585,10 @@ const CFG={fps:12,camW:640,camH:480};
    ============================================================ */
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const D={
-  video:$('#video'),selfVideoWrap:$('#self-video-wrap'),selfVideo:$('#self-video'),
-  focusRing:$('#focus-ring'),timerDisplay:$('#timer-display'),
-  ringStatusText:$('#ring-status-text'),
+  video:$('#video'),flipVideo:$('#flip-video'),
+  flipCard:$('#flipCard'),flipHint:$('#flip-hint'),
+  frontTimer:$('#front-timer'),frontStatus:$('#front-status'),
+  moodGlow:$('#mood-glow'),progressFill:$('#progress-fill'),
   actionLabel:$('#action-label'),actionSub:$('#action-sub'),
   manualActions:$('#manual-actions'),noteInputRow:$('#note-input-row'),
   noteInput:$('#note-input'),noteConfirm:$('#note-confirm'),
@@ -575,26 +612,104 @@ const D={
 const S={
   isReading:false,sessionStart:null,sessionSeconds:0,timerInt:null,
   pomodoroSeconds:25*60,pomodoroRemaining:0,
-  timeline:[],           // { timestamp, time, type: 'smile'|'frown'|'nod'|'shake'|'note', intensity?, duration?, text? }
+  timeline:[],
   lastTrigger:{frown:0,smile:0},
-  curEmotion:null,       // 'smile' | 'frown' | null
+  curEmotion:null,
   fl:null,cameraStream:null,
   visible:true,
-  settings:{frownSens:50,smileSens:50,debounceMs:3000,theme:'dark',pomodoroMin:25},
+  settings:{frownSens:50,smileSens:50,debounceMs:3000,theme:'dark',pomodoroMin:25,soundVol:25,soundType:'rain'},
   recentFrown:0,recentSmile:0,
   neutralBaseline:null,
   calibrating:false,_calSamples:[],_calTarget:36,
-  // Emotion sampling for curve
-  emotionSamples:[],     // { minute, valence }
-  _lastSampleMinute:-1,
-  // Head pose tracking
-  lastPitch:null,lastYaw:null,
-  headPoseHistory:[],    // last N pitch/yaw values for detecting changes
-  // Current diary being viewed in summary
+  emotionSamples:[],_lastSampleMinute:-1,
+  headPoseHistory:[],
   _currentDiary:null,
-  // PiP support (countdown timer)
+  // Flip state
+  isFlipped:false,
+  // PiP countdown timer
   pipMode:null,pipWindow:null,_pipTimerInt:null,
+  // White noise
+  _audioCtx:null,_noiseSource:null,_noiseGain:null,
 };
+
+/* ============================================================
+   FLIP LOGIC
+   ============================================================ */
+function setFlip(flipped){
+  S.isFlipped=flipped;
+  D.flipCard.classList.toggle('flipped',flipped);
+  D.flipHint.textContent=flipped?'点击翻回专注':'点击圆环，看看自己';
+}
+function toggleFlip(){
+  setFlip(!S.isFlipped);
+  if(S.isReading&&S.isFlipped){
+    // User flipped to see themselves — auto-flip back after 8s
+    clearTimeout(S._autoFlipBack);
+    S._autoFlipBack=setTimeout(()=>{if(S.isReading)setFlip(false);},8000);
+  }
+}
+function autoFlipToBack(){if(!S.isFlipped)setFlip(true)}
+function autoFlipToFront(){if(S.isFlipped)setFlip(false)}
+
+/* ============================================================
+   WHITE NOISE
+   ============================================================ */
+async function initAudio(){
+  if(S._audioCtx)return;
+  S._audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  S._noiseGain=S._audioCtx.createGain();
+  S._noiseGain.gain.value=S.settings.soundVol/100*.35;
+  S._noiseGain.connect(S._audioCtx.destination);
+}
+function stopNoise(){
+  if(S._noiseSource){try{S._noiseSource.stop()}catch(e){}S._noiseSource=null}
+}
+function playNoise(type){
+  if(!S._audioCtx)return;
+  stopNoise();
+  const ctx=S._audioCtx;
+  // Create a simple noise buffer
+  const sr=ctx.sampleRate,len=sr*3;
+  const buf=ctx.createBuffer(1,len,sr);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<len;i++){
+    if(type==='rain'){
+      // Rain: filtered pink-ish noise with random drops
+      data[i]=(Math.random()-.5)*(Math.random()<.03?3:1)*.4;
+    }else if(type==='cafe'){
+      // Cafe: low-freq hum + occasional clinks
+      data[i]=(Math.random()-.5)*.15+(Math.random()<.001?Math.random():0);
+    }else if(type==='forest'){
+      // Forest: softer noise with rare chirps
+      data[i]=(Math.random()-.5)*(Math.random()<.005?1.5:.25);
+    }
+  }
+  S._noiseSource=ctx.createBufferSource();
+  S._noiseSource.buffer=buf;
+  S._noiseSource.loop=true;
+  // Add subtle filter
+  const filter=ctx.createBiquadFilter();
+  filter.type='lowpass';filter.frequency.value=type==='cafe'?800:3000;
+  S._noiseSource.connect(filter);
+  filter.connect(S._noiseGain);
+  S._noiseSource.start();
+}
+function updateNoiseVolume(){
+  if(S._noiseGain)S._noiseGain.gain.value=S.settings.soundVol/100*.35;
+}
+
+/* ============================================================
+   PROGRESS RING
+   ============================================================ */
+const PROGRESS_CIRCUMFERENCE=2*Math.PI*135; // r=135 → ~848.23
+function updateProgressRing(){
+  if(!S.isReading||S.calibrating)return;
+  const total=S.pomodoroSeconds;
+  const elapsed=total-S.pomodoroRemaining;
+  const pct=Math.min(1,elapsed/total);
+  const offset=PROGRESS_CIRCUMFERENCE*(1-pct);
+  D.progressFill.style.strokeDashoffset=offset;
+}
 
 /* ============================================================
    HELPER: extract blendshape score
@@ -605,30 +720,20 @@ function getBS(blendshapes,name){
 }
 
 /* ============================================================
-   HELPER: extract head pose angles from transformation matrix
-   MediaPipe gives a 4x4 row-major matrix (16 floats)
+   HELPER: extract head pose angles
    ============================================================ */
 function extractHeadPose(matrixData){
-  // matrixData is Float32Array of 16 elements, row-major 4x4
-  // Rotation matrix R is the upper-left 3x3
   const m=matrixData;
-  // Row-major: m[0]=R00, m[1]=R01, m[2]=R02, m[4]=R10, m[5]=R11, m[6]=R12, m[8]=R20, m[9]=R21, m[10]=R22
   const R00=m[0],R01=m[1],R02=m[2];
   const R10=m[4],R11=m[5],R12=m[6];
   const R20=m[8],R21=m[9],R22=m[10];
-  // Extract Euler angles (assuming ZYX rotation order, which is common for face pose)
-  // pitch: rotation around X-axis (nodding up/down)
-  // yaw: rotation around Y-axis (shaking head left/right)
-  // roll: rotation around Z-axis (tilting head)
   const pitch=Math.atan2(-R12,Math.sqrt(R11*R11+R10*R10));
   const yaw=Math.atan2(R02,R00);
-  const roll=Math.atan2(R21,R22);
-  return{pitch:pitch*180/Math.PI,yaw:yaw*180/Math.PI,roll:roll*180/Math.PI};
+  return{pitch:pitch*180/Math.PI,yaw:yaw*180/Math.PI};
 }
 
 /* ============================================================
-   DETECTION: compute baseline from calibration samples
-   Each sample: { mouthSmile, browDown, browInnerUp, eyeBlink }
+   DETECTION: baseline from calibration samples
    ============================================================ */
 function computeBaseline(samples){
   const keys=['mouthSmile','browDown','browInnerUp','eyeBlink'];
@@ -644,18 +749,14 @@ function computeBaseline(samples){
 
 /* ============================================================
    DETECTION: process one frame's blendshapes + head pose
-   Returns { action, intensity }
    ============================================================ */
 function detectAction(blendshapes,headPose){
-  // Extract signals from blendshapes
   const mouthSmile=(getBS(blendshapes,'mouthSmileLeft')+getBS(blendshapes,'mouthSmileRight'))/2;
   const browDown=(getBS(blendshapes,'browDownLeft')+getBS(blendshapes,'browDownRight'))/2;
   const browInnerUp=getBS(blendshapes,'browInnerUp');
   const eyeBlink=(getBS(blendshapes,'eyeBlinkLeft')+getBS(blendshapes,'eyeBlinkRight'))/2;
-
   const m={mouthSmile,browDown,browInnerUp,eyeBlink};
 
-  // During calibration: collect samples, show countdown
   if(S.calibrating){
     S._calSamples.push(m);
     const remain=Math.ceil((S._calTarget-S._calSamples.length)/12);
@@ -673,22 +774,16 @@ function detectAction(blendshapes,headPose){
   if(!S.neutralBaseline)return{action:null,intensity:0};
 
   const bl=S.neutralBaseline;
-
-  // Z-scores: positive = more than baseline
   const smileZ=(mouthSmile-bl.mouthSmile.mean)/bl.mouthSmile.std;
   const frownZ=(browDown-bl.browDown.mean)/bl.browDown.std;
-
-  const th=sens=>3.0-sens/100*2.0; // sens=50 → 2.0
+  const th=sens=>3.0-sens/100*2.0;
   const smileTh=th(S.settings.smileSens);
   const frownTh=th(S.settings.frownSens);
-
-  // Additional: frowning also needs browInnerUp not elevated (distinguish from surprise)
   const browUpZ=(browInnerUp-bl.browInnerUp.mean)/bl.browInnerUp.std;
 
   const smileDetected=smileZ>smileTh;
-  const frownDetected=frownZ>frownTh&&browUpZ<1.0; // frown without surprise
+  const frownDetected=frownZ>frownTh&&browUpZ<1.0;
 
-  // Temporal smoothing: require 3 consecutive frames
   const CONFIRM=3;
   if(frownDetected){S.recentFrown++;S.recentSmile=0;}
   else{S.recentFrown=Math.max(0,S.recentFrown-1);}
@@ -698,13 +793,10 @@ function detectAction(blendshapes,headPose){
   const frownConfirmed=S.recentFrown>=CONFIRM;
   const smileConfirmed=S.recentSmile>=CONFIRM;
 
-  // Mutual exclusion: smile wins
   if(smileConfirmed&&frownConfirmed)return{action:'smile',intensity:smileZ};
   if(smileConfirmed)return{action:'smile',intensity:smileZ};
   if(frownConfirmed)return{action:'frown',intensity:frownZ};
 
-  // Check head pose for nodding/shaking
-  // We detect rapid changes relative to recent average
   if(headPose){
     S.headPoseHistory.push({pitch:headPose.pitch,yaw:headPose.yaw,ts:Date.now()});
     if(S.headPoseHistory.length>30)S.headPoseHistory.shift();
@@ -712,16 +804,12 @@ function detectAction(blendshapes,headPose){
       const recent=S.headPoseHistory.slice(-10);
       const avgPitch=recent.reduce((s,h)=>s+h.pitch,0)/recent.length;
       const avgYaw=recent.reduce((s,h)=>s+h.yaw,0)/recent.length;
-      // Detect significant deviation from recent average
       const pitchDev=Math.abs(headPose.pitch-avgPitch);
       const yawDev=Math.abs(headPose.yaw-avgYaw);
-      // Nod: pitch change > 12 degrees (a single nod)
       if(pitchDev>12)return{action:'nod',intensity:pitchDev/30};
-      // Shake: yaw change > 16 degrees
       if(yawDev>16)return{action:'shake',intensity:yawDev/30};
     }
   }
-
   return{action:null,intensity:0};
 }
 
@@ -749,15 +837,9 @@ function recordAction(action,text){
     S.curEmotion=action;
   }
 
-  // Update status dot
   updateStatusDot();
+  updateMoodGlow();
 
-  // Update focus ring color
-  D.focusRing.classList.remove('smiling','frowning');
-  if(action==='smile')D.focusRing.classList.add('smiling');
-  else if(action==='frown')D.focusRing.classList.add('frowning');
-
-  // Update action label
   const emojis={smile:'🙂',frown:'😤',nod:'😌',shake:'🤔',note:'📝'};
   const labels={smile:'微笑了',frown:'皱眉了',nod:'点头',shake:'摇头',note:'备注'};
   const colors={smile:'var(--dot-smile)',frown:'var(--dot-frown)',nod:'var(--dot-calm)',shake:'var(--dot-calm)',note:'var(--accent)'};
@@ -766,20 +848,43 @@ function recordAction(action,text){
     D.actionLabel.style.color=colors[action];
   }
 
-
+  updatePiP();
   updateCounts();
-  sampleEmotion(); // Record emotion sample for curve
+  sampleEmotion();
 }
 
 /* ============================================================
-   EMOTION SAMPLING (for summary curve)
+   MOOD GLOW (back face)
+   ============================================================ */
+function updateMoodGlow(){
+  D.moodGlow.classList.remove('smiling','frowning');
+  if(S.curEmotion==='smile')D.moodGlow.classList.add('smiling');
+  else if(S.curEmotion==='frown')D.moodGlow.classList.add('frowning');
+  clearTimeout(S._glowTimer);
+  S._glowTimer=setTimeout(()=>{
+    D.moodGlow.classList.remove('smiling','frowning');
+    S.curEmotion=null;
+  },8000);
+}
+
+function updateStatusDot(){
+  D.statusDot.classList.remove('smiling','frowning');
+  if(S.curEmotion==='smile')D.statusDot.classList.add('smiling');
+  else if(S.curEmotion==='frown')D.statusDot.classList.add('frowning');
+  clearTimeout(S._dotTimer);
+  S._dotTimer=setTimeout(()=>{
+    D.statusDot.classList.remove('smiling','frowning');
+  },8000);
+}
+
+/* ============================================================
+   EMOTION SAMPLING
    ============================================================ */
 function sampleEmotion(){
   if(!S.sessionStart)return;
   const elapsedMin=Math.floor((Date.now()-S.sessionStart)/60000);
   if(elapsedMin===S._lastSampleMinute)return;
   S._lastSampleMinute=elapsedMin;
-  // Compute valence from recent timeline entries (last 60s)
   const cutoff=Date.now()-60000;
   const recent=S.timeline.filter(e=>e.timestamp>=cutoff);
   let smileCount=0,frownCount=0;
@@ -789,22 +894,6 @@ function sampleEmotion(){
   }
   const valence=Math.max(-1,Math.min(1,(smileCount-frownCount)/Math.max(1,smileCount+frownCount)));
   S.emotionSamples.push({minute:elapsedMin,valence,smileCount,frownCount});
-}
-
-/* ============================================================
-   UPDATE STATUS DOT
-   ============================================================ */
-function updateStatusDot(){
-  D.statusDot.classList.remove('smiling','frowning');
-  if(S.curEmotion==='smile')D.statusDot.classList.add('smiling');
-  else if(S.curEmotion==='frown')D.statusDot.classList.add('frowning');
-  // Auto-clear after 8 seconds (dot returns to calm)
-  clearTimeout(S._dotTimer);
-  S._dotTimer=setTimeout(()=>{
-    D.statusDot.classList.remove('smiling','frowning');
-    S.curEmotion=null;
-    D.focusRing.classList.remove('smiling','frowning');
-  },8000);
 }
 
 /* ============================================================
@@ -820,7 +909,6 @@ function updateCounts(){
    PICTURE-IN-PICTURE — countdown timer
    ============================================================ */
 async function enterPiP(){
-  // Try document PiP: render a countdown timer
   if('documentPictureInPicture' in window){
     try{
       const pw=await documentPictureInPicture.requestWindow({width:200,height:200});
@@ -832,7 +920,6 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;w
 </style></head><body><div><div id="d-countdown">25:00</div><div id="d-label">专注中</div></div></body></html>`);
       pw.document.close();
       S.pipMode='document';S.pipWindow=pw;
-      // Update countdown every second
       S._pipTimerInt=setInterval(()=>{
         try{
           const el=pw.document.getElementById('d-countdown');
@@ -848,12 +935,11 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;w
         if(S.isReading)setTimeout(enterPiP,600);
       });
       return;
-    }catch(e){/* fall through to video PiP */}
+    }catch(e){}
   }
   // Fallback: canvas-based countdown via video PiP
   try{
-    const cv=document.createElement('canvas');
-    cv.width=256;cv.height=256;
+    const cv=document.createElement('canvas');cv.width=256;cv.height=256;
     const ctx=cv.getContext('2d');
     const drawCD=()=>{
       ctx.clearRect(0,0,256,256);
@@ -876,7 +962,6 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;w
     pipVid.srcObject=stream;pipVid.play();
     pipVid.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
     document.body.appendChild(pipVid);
-    // Redraw every second
     S._pipTimerInt=setInterval(drawCD,1000);
     pipVid.addEventListener('leavepictureinpicture',()=>{
       if(S._pipTimerInt){clearInterval(S._pipTimerInt);S._pipTimerInt=null;}
@@ -885,7 +970,7 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;w
     });
     await pipVid.requestPictureInPicture();
     S.pipMode='video';
-  }catch(e){/* user declined or not supported */}
+  }catch(e){}
 }
 async function exitPiP(){
   if(S._pipTimerInt){clearInterval(S._pipTimerInt);S._pipTimerInt=null;}
@@ -898,9 +983,7 @@ async function exitPiP(){
   }
   S.pipMode=null;
 }
-function updatePiP(emoji,label,color){
-  // countdown PiP updates itself via interval, nothing needed here
-}
+function updatePiP(){}
 
 /* ============================================================
    CAMERA & MODEL
@@ -910,7 +993,11 @@ async function setupCamera(){
     const stream=await navigator.mediaDevices.getUserMedia({
       video:{width:{ideal:CFG.camW},height:{ideal:CFG.camH},facingMode:'user'},audio:false
     });
-    S.cameraStream=stream;D.video.srcObject=stream;await D.video.play();return true;
+    S.cameraStream=stream;D.video.srcObject=stream;await D.video.play();
+    // Also set flip video on back face
+    D.flipVideo.srcObject=stream.clone();
+    D.flipVideo.play();
+    return true;
   }catch(e){toast('❌ 无法访问摄像头');return false}
 }
 
@@ -940,13 +1027,11 @@ function detectFace(){
   if(D.video.readyState<2)return;
   const r=S.fl.detectForVideo(D.video,performance.now());
   if(!r.faceLandmarks||!r.faceLandmarks.length)return;
-
   const blendshapes=r.faceBlendshapes?.[0]?.categories||[];
   let headPose=null;
   if(r.facialTransformationMatrixes?.length>0){
     headPose=extractHeadPose(r.facialTransformationMatrixes[0].data);
   }
-
   if(S.isReading){
     const result=detectAction(blendshapes,headPose);
     if(result.action&&canTrigger(result.action)){
@@ -966,13 +1051,14 @@ let _pomodoroInterval=null;
 function startPomodoro(){
   S.pomodoroRemaining=S.pomodoroSeconds;
   updateTimerDisplay();
+  updateProgressRing();
   _pomodoroInterval=setInterval(()=>{
     S.pomodoroRemaining--;
     updateTimerDisplay();
+    updateProgressRing();
     if(S.pomodoroRemaining<=0){
       clearInterval(_pomodoroInterval);_pomodoroInterval=null;
-      toast('⏰ 专注时间到！');
-      stopReading();
+      onTimerComplete();
     }
   },1000);
 }
@@ -981,7 +1067,15 @@ function stopPomodoro(){
 }
 function updateTimerDisplay(){
   const m=Math.floor(S.pomodoroRemaining/60),s=S.pomodoroRemaining%60;
-  D.timerDisplay.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  D.frontTimer.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+function onTimerComplete(){
+  toast('⏰ 专注时间到！');
+  // Auto-flip to back (camera) face
+  autoFlipToBack();
+  // Then show summary after 3 seconds
+  setTimeout(()=>{stopReading();},3000);
 }
 
 /* ============================================================
@@ -996,20 +1090,23 @@ function startReading(){
   S.headPoseHistory=[];
   S.calibrating=true;S._calSamples=[];S.neutralBaseline=null;
 
+  // Flip to front (timer)
+  autoFlipToFront();
+
   D.btnRead.textContent='⏹ 结束专注';D.btnRead.className='stop';
   D.actionSub.textContent='保持自然表情… 3';
   D.actionLabel.textContent='⏳ 校准中';
   D.actionLabel.style.color='var(--accent)';
-  D.ringStatusText.textContent='校准中';
-  D.focusRing.classList.remove('smiling','frowning');
-  D.focusRing.classList.add('reading');
+  D.frontStatus.textContent='校准中';
+  D.moodGlow.classList.remove('smiling','frowning');
   D.statusDotWrap.classList.add('active');
   D.statusDot.classList.remove('smiling','frowning');
-  D.timerDisplay.textContent='--:--';
+  D.progressFill.style.strokeDashoffset=PROGRESS_CIRCUMFERENCE;
+
+  // White noise
+  initAudio().then(()=>{if(S.settings.soundType!=='silence')playNoise(S.settings.soundType)});
 
   updateCounts();
-  // Show self-view video
-  D.selfVideo.srcObject=S.cameraStream;D.selfVideo.play();D.selfVideoWrap.classList.add('active');
   startLoop();
   enterPiP();
 }
@@ -1019,7 +1116,7 @@ function finishCalibration(){
   S.pomodoroSeconds=S.settings.pomodoroMin*60;
   startPomodoro();
   S.timerInt=setInterval(()=>{S.sessionSeconds++;updateTimer()},1000);
-  D.ringStatusText.textContent='专注中';
+  D.frontStatus.textContent='专注中';
   toast('✅ 校准完成，开始专注！');
 }
 
@@ -1029,72 +1126,60 @@ function stopReading(){
   S.calibrating=false;S._calSamples=null;
   stopPomodoro();
   clearInterval(S.timerInt);S.timerInt=null;
-  stopLoop();
-  exitPiP();
+  stopLoop();stopNoise();
+  exitPiP();clearTimeout(S._autoFlipBack);
   S.neutralBaseline=null;
-  D.selfVideoWrap.classList.remove('active');
 
   D.btnRead.textContent='▶ 开始专注';D.btnRead.className='start';
   D.actionSub.textContent='可以再次开始';
   D.actionLabel.textContent='等待开始';D.actionLabel.style.color='var(--dot-calm)';
-  D.ringStatusText.textContent='等待开始';
-  D.focusRing.classList.remove('reading','smiling','frowning');
+  D.frontStatus.textContent='等待开始';
+  D.moodGlow.classList.remove('smiling','frowning');
   D.statusDotWrap.classList.remove('active');
   D.statusDot.classList.remove('smiling','frowning');
-  D.timerDisplay.textContent=S.settings.pomodoroMin+':00';
+  D.progressFill.style.strokeDashoffset=PROGRESS_CIRCUMFERENCE;
+  D.frontTimer.textContent=S.settings.pomodoroMin+':00';
 
   const mins=Math.round(S.sessionSeconds/60*10)/10;
   if(S.timeline.length>0){
     const d=genDiary(mins);
     saveDiary(d);
-    showSummary(d);
+    // Auto-flip to back, then show summary
+    autoFlipToBack();
+    setTimeout(()=>showSummary(d),1500);
     toast('📔 专注报告已生成！');
   }else{
     toast('📖 专注结束');
   }
   S.sessionSeconds=0;S.curEmotion=null;
   updateTimer();updateCounts();
-
 }
 
 /* ============================================================
-   SUMMARY PAGE — the core experience
+   SUMMARY PAGE
    ============================================================ */
 function showSummary(diary){
   S._currentDiary=diary;
   const d=diary;
-
-  // Title & date
   D.summaryTitle.textContent='这次专注，算法看到了这些…';
   D.summaryDate.textContent='📅 '+d.date+'  ·  ⏱ '+d.durationMinutes+' 分钟';
-
-  // Emotion curve
   drawEmotionCurve(d);
-
-  // Data cards
   renderSummaryCards(d);
-
-  // Timeline
   renderSummaryTimeline(d);
-
-  // Encouragement
   D.summaryEncourage.textContent=d.encouragementText;
-
-  // Event bindings (re-bind each time)
   $('#s-btn-json').onclick=()=>exportDiary(diary,'json');
   $('#s-btn-md').onclick=()=>exportDiary(diary,'md');
   $('#s-btn-close').onclick=closeSummary;
   D.summaryOverlay.onclick=e=>{if(e.target===D.summaryOverlay)closeSummary();};
-
-  // Show
   D.summaryOverlay.classList.add('open');
   document.body.style.overflow='hidden';
 }
-
 function closeSummary(){
   D.summaryOverlay.classList.remove('open');
   document.body.style.overflow='';
   S._currentDiary=null;
+  // Flip back to front
+  autoFlipToFront();
 }
 
 /* ============================================================
@@ -1103,43 +1188,32 @@ function closeSummary(){
 function drawEmotionCurve(diary){
   const canvas=D.emotionCurve;
   const rect=canvas.parentElement.getBoundingClientRect();
-  canvas.width=rect.width*2;
-  canvas.height=200*2;
-  canvas.style.width=rect.width+'px';
-  canvas.style.height='200px';
+  canvas.width=rect.width*2;canvas.height=200*2;
+  canvas.style.width=rect.width+'px';canvas.style.height='200px';
   const ctx=canvas.getContext('2d');
   ctx.scale(2,2);
   const W=rect.width-40,H=180;
   const pad={top:20,right:20,bottom:30,left:30};
   const pw=W-pad.left-pad.right,ph=H-pad.top-pad.bottom;
-
   ctx.clearRect(0,0,W,H);
 
-  // Background grid lines (subtle)
-  ctx.strokeStyle='rgba(255,255,255,.04)';
-  ctx.lineWidth=.5;
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;
   for(let i=0;i<=4;i++){
     const y=pad.top+ph*i/4;
     ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
   }
 
-  // Build data points from emotion samples
   const samples=diary.emotionSamples||[];
   const totalMin=diary.durationMinutes||1;
   let points=[];
-
   if(samples.length>0){
     points=samples.map(s=>({
       x:pad.left+(s.minute/totalMin)*pw,
       y:pad.top+ph/2-(s.valence*(ph/2-10)),
-      valence:s.valence,
-      minute:s.minute,
+      valence:s.valence,minute:s.minute,
     }));
   }
-
-  // If not enough samples, build from timeline events
   if(points.length<2){
-    // Create points from timeline distribution
     const bins={};
     for(const e of diary.timeline||[]){
       if(e.type!=='smile'&&e.type!=='frown')continue;
@@ -1150,101 +1224,51 @@ function drawEmotionCurve(diary){
     }
     for(const[min,bin]of Object.entries(bins)){
       const v=Math.max(-1,Math.min(1,(bin.smile-bin.frown)/Math.max(1,bin.smile+bin.frown)));
-      points.push({
-        x:pad.left+(Number(min)/totalMin)*pw,
-        y:pad.top+ph/2-v*(ph/2-10),
-        valence:v,minute:Number(min),
-      });
+      points.push({x:pad.left+(Number(min)/totalMin)*pw,y:pad.top+ph/2-v*(ph/2-10),valence:v,minute:Number(min)});
     }
     points.sort((a,b)=>a.minute-b.minute);
   }
-
-  // Add start and end anchors
   if(points.length>0){
     if(points[0].minute>0)points.unshift({x:pad.left,y:pad.top+ph/2,valence:0,minute:0});
     if(points[points.length-1].minute<totalMin)points.push({x:W-pad.right,y:pad.top+ph/2,valence:0,minute:totalMin});
   }
+  if(points.length===0)points=[{x:pad.left,y:pad.top+ph/2},{x:W-pad.right,y:pad.top+ph/2}];
 
-  // If still no points, draw a flat line
-  if(points.length===0){
-    points=[{x:pad.left,y:pad.top+ph/2},{x:W-pad.right,y:pad.top+ph/2}];
-  }
-
-  // Draw the curve with hand-drawn jitter
-  const jitter=()=>(Math.random()-.5)*1.8; // subtle jitter for hand-drawn feel
-
-  // Smooth curve using Catmull-Rom → Bezier
-  ctx.strokeStyle='rgba(180,180,200,.7)';
-  ctx.lineWidth=1.8;
-  ctx.lineJoin='round';
-  ctx.lineCap='round';
-  ctx.beginPath();
-  ctx.moveTo(points[0].x,points[0].y);
-
+  const jitter=()=>(Math.random()-.5)*1.8;
+  ctx.strokeStyle='rgba(180,180,200,.7)';ctx.lineWidth=1.8;
+  ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
   for(let i=0;i<points.length-1;i++){
-    const p0=points[Math.max(0,i-1)];
-    const p1=points[i];
-    const p2=points[i+1];
-    const p3=points[Math.min(points.length-1,i+2)];
-    const cp1x=p1.x+(p2.x-p0.x)/6+jitter();
-    const cp1y=p1.y+(p2.y-p0.y)/6+jitter();
-    const cp2x=p2.x-(p3.x-p1.x)/6+jitter();
-    const cp2y=p2.y-(p3.y-p1.y)/6+jitter();
-    ctx.bezierCurveTo(cp1x,cp1y,cp2x,cp2y,p2.x,p2.y);
+    const p0=points[Math.max(0,i-1)],p1=points[i],p2=points[i+1],p3=points[Math.min(points.length-1,i+2)];
+    ctx.bezierCurveTo(p1.x+(p2.x-p0.x)/6+jitter(),p1.y+(p2.y-p0.y)/6+jitter(),p2.x-(p3.x-p1.x)/6+jitter(),p2.y-(p3.y-p1.y)/6+jitter(),p2.x,p2.y);
   }
   ctx.stroke();
 
-  // Draw key event markers
   const keyEvents=[];
   for(const e of diary.timeline||[]){
     if(e.type!=='smile'&&e.type!=='frown')continue;
     const[min,sec]=(e.time||'0:00').split(':').map(Number);
     const t=(min||0)+(sec||0)/60;
-    const v=e.type==='smile'?0.6:-0.6;
-    const x=pad.left+(t/totalMin)*pw;
-    const y=pad.top+ph/2-v*(ph/2-10);
-    keyEvents.push({x,y,type:e.type,time:e.time,t});
+    keyEvents.push({x:pad.left+(t/totalMin)*pw,y:pad.top+ph/2-(e.type==='smile'?.6:-.6)*(ph/2-10),type:e.type,time:e.time});
   }
-
-  // Draw markers
   for(const ev of keyEvents){
     const color=ev.type==='smile'?'#fbbf24':'#f59e0b';
-    ctx.fillStyle=color;
-    ctx.beginPath();
-    ctx.arc(ev.x,ev.y,3.5,0,Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle=color+'44';
-    ctx.beginPath();
-    ctx.arc(ev.x,ev.y,7,0,Math.PI*2);
-    ctx.fill();
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(ev.x,ev.y,3.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=color+'44';ctx.beginPath();ctx.arc(ev.x,ev.y,7,0,Math.PI*2);ctx.fill();
   }
 
-  // Axes
-  ctx.strokeStyle='rgba(255,255,255,.15)';
-  ctx.lineWidth=.8;
-  ctx.beginPath();ctx.moveTo(pad.left,pad.top+ph/2);ctx.lineTo(W-pad.right,pad.top+ph/2);ctx.stroke(); // midline
-
-  // Labels
-  ctx.fillStyle='rgba(255,255,255,.3)';
-  ctx.font='9px "PingFang SC","Hiragino Sans GB",sans-serif';
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=.8;
+  ctx.beginPath();ctx.moveTo(pad.left,pad.top+ph/2);ctx.lineTo(W-pad.right,pad.top+ph/2);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='9px "PingFang SC","Hiragino Sans GB",sans-serif';
   ctx.textAlign='left';
   ctx.fillText('🙂',pad.left-20,pad.top+4);
   ctx.fillText('😐',pad.left-20,pad.top+ph/2+3);
   ctx.fillText('😤',pad.left-20,pad.top+ph-4);
-
-  // X-axis time labels
   ctx.textAlign='center';
   ctx.fillText('0',pad.left,pad.top+ph+16);
   ctx.fillText(Math.round(totalMin)+'min',W-pad.right,pad.top+ph+16);
-  if(points.length>=2){
-    const mid=Math.round(totalMin/2);
-    ctx.fillText(mid+'min',pad.left+pw/2,pad.top+ph+16);
-  }
-
-  // Hint
-  D.emotionCurveHint.textContent=keyEvents.length>0
-    ?'● '+keyEvents.length+' 个关键时刻  ·  悬停曲线可查看情绪变化'
-    :'数据点较少，再做一次专注吧';
+  if(points.length>=2){const mid=Math.round(totalMin/2);ctx.fillText(mid+'min',pad.left+pw/2,pad.top+ph+16);}
+  D.emotionCurveHint.textContent=keyEvents.length>0?'● '+keyEvents.length+' 个关键时刻':'数据点较少，再做一次专注吧';
 }
 
 /* ============================================================
@@ -1252,30 +1276,20 @@ function drawEmotionCurve(diary){
    ============================================================ */
 function renderSummaryCards(diary){
   const d=diary;
-  const prev=loadDiaries()[1]; // previous diary (current is [0] after save)
-
+  const prev=loadDiaries()[1];
+  const nodCount=(d.timeline||[]).filter(e=>e.type==='nod').length;
+  const shakeCount=(d.timeline||[]).filter(e=>e.type==='shake').length;
   const cards=[
     {icon:'🙂',num:d.smileCount+' 次',label:'微笑',compare:compareText(prev,'smileCount',d.smileCount,'次')},
     {icon:'😤',num:d.frownCount+' 次',label:'皱眉',compare:compareText(prev,'frownCount',d.frownCount,'次')},
     {icon:'⏱',num:d.durationMinutes+' 分钟',label:'专注时长',compare:compareText(prev,'durationMinutes',d.durationMinutes,'分钟')},
   ];
-
-  // Add nod/shake if present
-  const nodCount=(d.timeline||[]).filter(e=>e.type==='nod').length;
-  const shakeCount=(d.timeline||[]).filter(e=>e.type==='shake').length;
   if(nodCount>0)cards.push({icon:'😌',num:nodCount+' 次',label:'点头',compare:'可能在思考或认同'});
   if(shakeCount>0)cards.push({icon:'🤔',num:shakeCount+' 次',label:'摇头',compare:'可能遇到了困难'});
-
   D.summaryCards.innerHTML=cards.map(c=>
-    '<div class="s-card">'+
-    '<div class="s-card-icon">'+c.icon+'</div>'+
-    '<div class="s-card-num">'+c.num+'</div>'+
-    '<div class="s-card-label">'+c.label+'</div>'+
-    (c.compare?'<div class="s-card-compare">'+c.compare+'</div>':'')+
-    '</div>'
+    '<div class="s-card"><div class="s-card-icon">'+c.icon+'</div><div class="s-card-num">'+c.num+'</div><div class="s-card-label">'+c.label+'</div>'+(c.compare?'<div class="s-card-compare">'+c.compare+'</div>':'')+'</div>'
   ).join('');
 }
-
 function compareText(prev,key,current,unit){
   if(!prev||prev[key]===undefined)return '这是第一次 ✨';
   const diff=current-prev[key];
@@ -1293,11 +1307,7 @@ function renderSummaryTimeline(diary){
   const emojis={smile:'🙂',frown:'😤',nod:'😌',shake:'🤔',note:'📝'};
   const labels={smile:'微笑',frown:'皱眉',nod:'点头',shake:'摇头',note:''};
   D.summaryTimeline.innerHTML=tl.map(e=>
-    '<div class="s-tl-item">'+
-    '<span class="s-tl-time">'+e.time+'</span>'+
-    '<span class="s-tl-icon">'+(emojis[e.type]||'📝')+'</span>'+
-    '<span class="s-tl-text">'+(e.text||labels[e.type]||'备注')+'</span>'+
-    '</div>'
+    '<div class="s-tl-item"><span class="s-tl-time">'+e.time+'</span><span class="s-tl-icon">'+(emojis[e.type]||'📝')+'</span><span class="s-tl-text">'+(e.text||labels[e.type]||'备注')+'</span></div>'
   ).reverse().join('');
 }
 
@@ -1315,8 +1325,6 @@ function genDiary(mins){
     else if(e.type==='shake')shakeCount++;
     else if(e.type==='note'&&e.text)manualNotes.push(e.text);
   }
-
-  // Find hardest period (densest frown in 5-min window)
   let hardest={time:'—',density:0};
   if(frownCount>0){
     const windows=[];
@@ -1332,21 +1340,17 @@ function genDiary(mins){
     for(const w of windows){if(w&&w.count>maxW.count)maxW=w;}
     hardest={time:'第 '+maxW.start+' 分钟左右',density:maxW.count};
   }
-
   const enc=genEnc(frownCount,smileCount,nodCount,shakeCount,mins,hardest);
   return{
     id:new Date().toISOString().replace(/[:.]/g,'-'),
     date:fmt(new Date()),timestamp:Date.now(),
     durationMinutes:mins,
     frownCount,smileCount,nodCount,shakeCount,
-    manualNotes,
-    hardestPeriod:hardest,
-    timeline:tl,
-    emotionSamples:S.emotionSamples,
+    manualNotes,hardestPeriod:hardest,
+    timeline:tl,emotionSamples:S.emotionSamples,
     encouragementText:enc,
   };
 }
-
 function genEnc(fc,sc,nc,shc,mins,hardest){
   const t=[];
   if(fc>8&&mins>20)t.push('今天皱了 '+fc+' 次眉，但你坚持了 '+mins+' 分钟，了不起。');
@@ -1365,30 +1369,26 @@ function genEnc(fc,sc,nc,shc,mins,hardest){
 /* ============================================================
    STORAGE
    ============================================================ */
-const KD='em4_d_v3',KC='em4_c_v3';
+const KD='em4_d_v4',KC='em4_c_v4';
 function saveDiary(d){const l=loadDiaries();l.unshift(d);try{localStorage.setItem(KD,JSON.stringify(l))}catch(e){l.pop();localStorage.setItem(KD,JSON.stringify(l));toast('⚠️ 存储空间不足')}}
 function loadDiaries(){try{return JSON.parse(localStorage.getItem(KD))||[]}catch(e){return[]}}
 function deleteDiary(id){localStorage.setItem(KD,JSON.stringify(loadDiaries().filter(d=>d.id!==id)));renderDiaryList();toast('🗑 已删除')}
-
 function exportDiary(diary,fmt){
   let c,fn,m;
-  if(fmt==='json'){
-    c=JSON.stringify(diary,null,2);fn='focus-'+diary.id+'.json';m='application/json';
-  }else{
+  if(fmt==='json'){c=JSON.stringify(diary,null,2);fn='focus-'+diary.id+'.json';m='application/json';}
+  else{
     const tl=(diary.timeline||[]).map(e=>'| '+e.time+' | '+(e.type==='frown'?'😤 皱眉':e.type==='smile'?'🙂 微笑':e.type==='nod'?'😌 点头':e.type==='shake'?'🤔 摇头':'📝 '+(e.text||''))+' |').join('\n');
     c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 😤 皱眉: '+diary.frownCount+' 次\n## 🙂 微笑: '+diary.smileCount+' 次\n\n## 📋 记录\n'+tl+'\n\n> '+diary.encouragementText+'\n';
     fn='focus-'+diary.id+'.md';m='text/markdown';
   }
   const b=new Blob([c],{type:m}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+fmt.toUpperCase());
 }
-
 function exportAllDiaries(){
   const l=loadDiaries();if(!l.length){toast('📭 没有日记');return}
   const b=new Blob([JSON.stringify(l,null,2)],{type:'application/json'}),a=document.createElement('a');
   a.href=URL.createObjectURL(b);a.download='all-diaries-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   URL.revokeObjectURL(a.href);toast('📤 已导出 '+l.length+' 篇');
 }
-
 function clearAllData(){
   if(confirm('删除所有数据？')){localStorage.removeItem(KD);renderDiaryList();toast('🗑 已清除')}
 }
@@ -1399,7 +1399,6 @@ function clearAllData(){
 function updateTimer(){const m=Math.floor(S.sessionSeconds/60),s=S.sessionSeconds%60;D.timer.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function toast(msg){const t=D.toast;t.textContent=msg;t.classList.add('show');clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500)}
-
 function togglePanel(p,b){
   const o=p.classList.contains('open');
   $$('.panel.open').forEach(x=>x.classList.remove('open'));
@@ -1408,7 +1407,7 @@ function togglePanel(p,b){
 }
 
 /* ============================================================
-   DIARY LIST (side panel)
+   DIARY LIST
    ============================================================ */
 function renderDiaryList(){
   const l=loadDiaries(),c=D.diaryScroll;
@@ -1422,7 +1421,6 @@ function renderDiaryList(){
   c.querySelectorAll('.md').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'md')});
   c.querySelectorAll('.del').forEach(b=>b.onclick=()=>{if(confirm('删除？'))deleteDiary(b.dataset.id)});
 }
-
 function showDetail(diary){
   const d=diary,b=D.modalBox,bk=D.modalBack;
   const tl=(d.timeline||[]).map(e=>'<div class="tl-item"><span class="tl-time">'+e.time+'</span> <span class="tl-icon">'+(e.type==='frown'?'😤':e.type==='smile'?'🙂':e.type==='nod'?'😌':e.type==='shake'?'🤔':'📝')+'</span> <span class="tl-text">'+(e.text||(e.type==='frown'?'皱眉':e.type==='smile'?'微笑':e.type==='nod'?'点头':e.type==='shake'?'摇头':'备注'))+'</span></div>').reverse().join('');
@@ -1438,9 +1436,7 @@ function showDetail(diary){
 /* ============================================================
    NOTE INPUT
    ============================================================ */
-function showNoteInput(){
-  D.noteInputRow.classList.add('show');D.noteInput.value='';D.noteInput.focus();
-}
+function showNoteInput(){D.noteInputRow.classList.add('show');D.noteInput.value='';D.noteInput.focus()}
 function hideNoteInput(){D.noteInputRow.classList.remove('show')}
 function confirmNote(){
   const text=D.noteInput.value.trim();
@@ -1464,15 +1460,48 @@ function applySettings(){
   $('#s-debounce').value=Math.round(s.debounceMs/100);
   $('#debounce-val').textContent=(s.debounceMs/1000).toFixed(1)+'秒';
   $('#s-pomodoro').value=String(s.pomodoroMin);
-  D.timerDisplay.textContent=s.pomodoroMin+':00';
+  D.frontTimer.textContent=s.pomodoroMin+':00';
+  S.pomodoroSeconds=s.pomodoroMin*60;
+  D.progressFill.style.strokeDashoffset=PROGRESS_CIRCUMFERENCE;
   document.body.dataset.theme=s.theme;
   $$('.theme-opt').forEach(o=>o.classList.toggle('sel',o.dataset.theme===s.theme));
+  // Sound
+  $('#sound-vol').value=s.soundVol;
+  $('#sound-vol-label').textContent=s.soundVol+'%';
+  $$('.sound-btn').forEach(b=>b.classList.toggle('active',b.dataset.sound===s.soundType));
+  updateNoiseVolume();
 }
 
 /* ============================================================
    EVENTS
    ============================================================ */
 function bindEvents(){
+  // Flip card click
+  D.flipCard.addEventListener('click',e=>{
+    // Don't flip if clicking during calibration
+    if(S.calibrating)return;
+    toggleFlip();
+  });
+
+  // Sound bar
+  $$('.sound-btn').forEach(b=>b.onclick=()=>{
+    S.settings.soundType=b.dataset.sound;
+    $$('.sound-btn').forEach(x=>x.classList.toggle('active',x.dataset.sound===S.settings.soundType));
+    saveSettings();
+    if(!S.isReading)return;
+    initAudio().then(()=>{
+      if(S.settings.soundType==='silence')stopNoise();
+      else playNoise(S.settings.soundType);
+    });
+  });
+  $('#sound-vol').oninput=e=>{
+    S.settings.soundVol=+e.target.value;
+    $('#sound-vol-label').textContent=S.settings.soundVol+'%';
+    saveSettings();
+    updateNoiseVolume();
+  };
+
+  // Reading
   D.btnRead.onclick=()=>S.isReading?stopReading():startReading();
 
   // Manual buttons
@@ -1496,7 +1525,7 @@ function bindEvents(){
   $('#s-frown-sens').oninput=e=>{S.settings.frownSens=+e.target.value;saveSettings()};
   $('#s-smile-sens').oninput=e=>{S.settings.smileSens=+e.target.value;saveSettings()};
   $('#s-debounce').oninput=e=>{S.settings.debounceMs=+e.target.value*100;$('#debounce-val').textContent=(S.settings.debounceMs/1000).toFixed(1)+'秒';saveSettings()};
-  $('#s-pomodoro').onchange=e=>{S.settings.pomodoroMin=+e.target.value;S.pomodoroSeconds=S.settings.pomodoroMin*60;D.timerDisplay.textContent=S.settings.pomodoroMin+':00';saveSettings()};
+  $('#s-pomodoro').onchange=e=>{S.settings.pomodoroMin=+e.target.value;S.pomodoroSeconds=S.settings.pomodoroMin*60;D.frontTimer.textContent=S.settings.pomodoroMin+':00';D.progressFill.style.strokeDashoffset=PROGRESS_CIRCUMFERENCE;saveSettings()};
   $$('.theme-opt').forEach(o=>o.onclick=()=>{S.settings.theme=o.dataset.theme;saveSettings();applySettings()});
   $('#btn-export-all').onclick=exportAllDiaries;
   $('#btn-clear-all').onclick=clearAllData;
@@ -1531,9 +1560,8 @@ window.addEventListener('beforeunload',()=>{
    ============================================================ */
 async function init(){
   loadSettings();bindEvents();
-
-  // Set initial timer display
-  D.timerDisplay.textContent=S.settings.pomodoroMin+':00';
+  // Set initial progress ring
+  D.progressFill.style.strokeDashoffset=PROGRESS_CIRCUMFERENCE;
 
   const camOk=await setupCamera();
   if(!camOk){D.actionSub.textContent='无法访问摄像头，请检查权限';return}
@@ -1543,7 +1571,9 @@ async function init(){
 
   D.actionSub.textContent='可以开始专注了 ✨';
   D.actionLabel.textContent='等待开始';
-  startLoop(); // Keep loop running to show model is active
+  startLoop();
+  // Pre-init audio context on user gesture
+  document.addEventListener('click',()=>initAudio(),{once:true});
 }
 init().catch(err=>{console.error(err);toast('⚠️ 初始化失败，请刷新')});
 </script>
