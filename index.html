@@ -563,8 +563,7 @@ const S={
   // Current diary being viewed in summary
   _currentDiary:null,
   // PiP support (keep for minimized windows)
-  pipMode:null,pipWindow:null,pipVideo:null,pipCanvas:null,pipCtx:null,
-  pipEmoji:'😐',pipLabel:'',pipColor:'var(--dot-calm)',
+  pipMode:null,pipWindow:null,_pipUpdateLabel:null,pipLabel:'',
 };
 
 /* ============================================================
@@ -790,65 +789,49 @@ function updateCounts(){
 }
 
 /* ============================================================
-   PICTURE-IN-PICTURE (keep for minimized windows)
+   PICTURE-IN-PICTURE — shows live camera feed
    ============================================================ */
-function ensurePiPElements(){
-  if(S.pipCanvas)return;
-  S.pipCanvas=document.createElement('canvas');
-  S.pipCanvas.width=256;S.pipCanvas.height=256;
-  S.pipCtx=S.pipCanvas.getContext('2d');
-  S.pipVideo=document.createElement('video');
-  S.pipVideo.muted=true;S.pipVideo.playsInline=true;
-  S.pipVideo.srcObject=S.pipCanvas.captureStream(10);
-  S.pipVideo.play();
-  document.body.appendChild(S.pipCanvas);
-  document.body.appendChild(S.pipVideo);
-  S.pipCanvas.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-  S.pipVideo.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-  S.pipVideo.addEventListener('leavepictureinpicture',()=>{
-    if(S.isReading)setTimeout(enterPiP,600);
-  });
-}
-function drawPiPFrame(){
-  if(!S.pipCtx)return;
-  const c=S.pipCtx,w=S.pipCanvas.width,h=S.pipCanvas.height;
-  c.clearRect(0,0,w,h);
-  const bg=c.createRadialGradient(w/2,h/2,w*.05,w/2,h/2,w*.7);
-  bg.addColorStop(0,'#1e1b4b');bg.addColorStop(1,'#0d0d1a');
-  c.fillStyle=bg;c.fillRect(0,0,w,h);
-  c.font='96px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
-  c.textAlign='center';c.textBaseline='middle';
-  c.fillText(S.pipEmoji,w/2,h/2-12);
-  c.font='bold 22px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
-  c.fillStyle=S.pipColor;
-  c.fillText(S.pipLabel,w/2,h/2+60);
-  c.strokeStyle=S.pipColor+'55';c.lineWidth=2;
-  c.beginPath();c.arc(w/2,h/2,80,0,Math.PI*2);c.stroke();
-}
 async function enterPiP(){
+  // Try document PiP first: embed the camera video directly
   if('documentPictureInPicture' in window){
     try{
-      const pw=await documentPictureInPicture.requestWindow({width:180,height:180});
+      const pw=await documentPictureInPicture.requestWindow({width:200,height:220});
       pw.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at center,#1e1b4b 0%,#0d0d1a 100%)}
-#d-emoji{font-size:72px;line-height:1;text-align:center;transition:transform .2s}
-#d-label{font-size:15px;font-weight:600;color:#e0e0e0;margin-top:8px;text-align:center}
-</style></head><body><div><div id="d-emoji">${S.pipEmoji}</div><div id="d-label">${S.pipLabel}</div></div></body></html>`);
+body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;width:100vw;height:100vh;overflow:hidden;background:#000}
+#d-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#d-label{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8);pointer-events:none;z-index:2}
+</style></head><body><video id="d-video" autoplay playsinline></video><div id="d-label">专注中</div></body></html>`);
       pw.document.close();
+      // Attach camera stream to the PiP window's video
+      const pipVideo=pw.document.getElementById('d-video');
+      pipVideo.srcObject=S.cameraStream;
+      pipVideo.play();
       S.pipMode='document';S.pipWindow=pw;
-      pw.addEventListener('pagehide',()=>{S.pipWindow=null;S.pipMode=null;if(S.isReading)setTimeout(enterPiP,600);});
+      // Update label when emotion changes
+      S._pipUpdateLabel=()=>{
+        try{
+          const lbl=pw.document.getElementById('d-label');
+          if(lbl)lbl.textContent=S.pipLabel||'专注中';
+        }catch(e){}
+      };
+      pw.addEventListener('pagehide',()=>{S.pipWindow=null;S.pipMode=null;S._pipUpdateLabel=null;if(S.isReading)setTimeout(enterPiP,600);});
       return;
-    }catch(e){}
+    }catch(e){/* fall through to video PiP */}
   }
-  ensurePiPElements();
-  drawPiPFrame();
-  try{await S.pipVideo.requestPictureInPicture();S.pipMode='video';}catch(e){}
+  // Fallback: use video PiP with the main camera video element
+  try{
+    await D.video.requestPictureInPicture();
+    S.pipMode='video';
+    D.video.addEventListener('leavepictureinpicture',()=>{
+      if(S.isReading)setTimeout(enterPiP,600);
+    },{once:true});
+  }catch(e){/* user declined or not supported */}
 }
 async function exitPiP(){
   if(S.pipMode==='document'&&S.pipWindow){
     try{S.pipWindow.close()}catch(e){}
-    S.pipWindow=null;S.pipMode=null;return;
+    S.pipWindow=null;S.pipMode=null;S._pipUpdateLabel=null;return;
   }
   if(document.pictureInPictureElement){
     try{await document.exitPictureInPicture()}catch(e){}
@@ -856,14 +839,11 @@ async function exitPiP(){
   S.pipMode=null;
 }
 function updatePiP(emoji,label,color){
-  S.pipEmoji=emoji;S.pipLabel=label;S.pipColor=color;
-  if(S.pipMode==='document'&&S.pipWindow){
-    try{
-      S.pipWindow.document.getElementById('d-emoji').textContent=emoji;
-      S.pipWindow.document.getElementById('d-label').textContent=label;
-    }catch(e){}
+  S.pipLabel=label;
+  if(S.pipMode==='document'&&S._pipUpdateLabel){
+    try{S._pipUpdateLabel()}catch(e){}
   }
-  if(S.pipMode==='video'||(S.isReading&&!S.pipMode))drawPiPFrame();
+  // video PiP shows live camera, no update needed
 }
 
 /* ============================================================
