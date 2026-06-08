@@ -126,6 +126,30 @@ body{
 }
 
 /* ============================================================
+   Self-view video (bottom-right, WeChat-style)
+   ============================================================ */
+#self-video-wrap{
+  position:fixed;bottom:74px;right:16px;z-index:25;
+  display:none;overflow:hidden;
+  border-radius:14px;width:110px;height:150px;
+  border:1.5px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 24px rgba(0,0,0,.45);
+  background:#000;
+  transition:opacity .4s,transform .4s;
+}
+#self-video-wrap.active{display:block}
+#self-video-wrap video{
+  width:100%;height:100%;object-fit:cover;
+  transform:scaleX(-1);
+}
+#self-video-wrap .sv-label{
+  position:absolute;bottom:4px;left:0;right:0;text-align:center;
+  font-size:9px;color:rgba(255,255,255,.5);
+  text-shadow:0 1px 2px rgba(0,0,0,.8);
+  pointer-events:none;z-index:2;
+}
+
+/* ============================================================
    Status Dot (bottom-left corner)
    ============================================================ */
 #status-dot-wrap{
@@ -374,6 +398,12 @@ body{
 <!-- Hidden video for MediaPipe processing only -->
 <video id="video" autoplay playsinline></video>
 
+<!-- Self-view floating window (bottom-right, WeChat-style) -->
+<div id="self-video-wrap">
+  <video id="self-video" autoplay playsinline muted></video>
+  <span class="sv-label">我</span>
+</div>
+
 <!-- Main Stage -->
 <div id="main-stage">
   <div id="stage-inner">
@@ -519,7 +549,7 @@ const CFG={fps:12,camW:640,camH:480};
    ============================================================ */
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const D={
-  video:$('#video'),
+  video:$('#video'),selfVideoWrap:$('#self-video-wrap'),selfVideo:$('#self-video'),
   focusRing:$('#focus-ring'),timerDisplay:$('#timer-display'),
   ringStatusText:$('#ring-status-text'),
   actionLabel:$('#action-label'),actionSub:$('#action-sub'),
@@ -562,8 +592,8 @@ const S={
   headPoseHistory:[],    // last N pitch/yaw values for detecting changes
   // Current diary being viewed in summary
   _currentDiary:null,
-  // PiP support (keep for minimized windows)
-  pipMode:null,pipWindow:null,_pipUpdateLabel:null,pipLabel:'',
+  // PiP support (countdown timer)
+  pipMode:null,pipWindow:null,_pipTimerInt:null,
 };
 
 /* ============================================================
@@ -736,8 +766,6 @@ function recordAction(action,text){
     D.actionLabel.style.color=colors[action];
   }
 
-  // Update PiP
-  updatePiP(emojis[action]||'😐',labels[action]||'',colors[action]||'var(--dot-calm)');
 
   updateCounts();
   sampleEmotion(); // Record emotion sample for curve
@@ -789,49 +817,81 @@ function updateCounts(){
 }
 
 /* ============================================================
-   PICTURE-IN-PICTURE — shows live camera feed
+   PICTURE-IN-PICTURE — countdown timer
    ============================================================ */
 async function enterPiP(){
-  // Try document PiP first: embed the camera video directly
+  // Try document PiP: render a countdown timer
   if('documentPictureInPicture' in window){
     try{
-      const pw=await documentPictureInPicture.requestWindow({width:200,height:220});
+      const pw=await documentPictureInPicture.requestWindow({width:200,height:200});
       pw.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;width:100vw;height:100vh;overflow:hidden;background:#000}
-#d-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-#d-label{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8);pointer-events:none;z-index:2}
-</style></head><body><video id="d-video" autoplay playsinline></video><div id="d-label">专注中</div></body></html>`);
+body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;width:100vw;height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#1e1b4b 0%,#0d0d1a 100%)}
+#d-countdown{font-size:56px;font-weight:200;color:#e0e0e0;letter-spacing:3px;text-align:center;font-variant-numeric:tabular-nums}
+#d-label{font-size:13px;color:rgba(255,255,255,.5);text-align:center;margin-top:6px;letter-spacing:1px}
+</style></head><body><div><div id="d-countdown">25:00</div><div id="d-label">专注中</div></div></body></html>`);
       pw.document.close();
-      // Attach camera stream to the PiP window's video
-      const pipVideo=pw.document.getElementById('d-video');
-      pipVideo.srcObject=S.cameraStream;
-      pipVideo.play();
       S.pipMode='document';S.pipWindow=pw;
-      // Update label when emotion changes
-      S._pipUpdateLabel=()=>{
+      // Update countdown every second
+      S._pipTimerInt=setInterval(()=>{
         try{
-          const lbl=pw.document.getElementById('d-label');
-          if(lbl)lbl.textContent=S.pipLabel||'专注中';
-        }catch(e){}
-      };
-      pw.addEventListener('pagehide',()=>{S.pipWindow=null;S.pipMode=null;S._pipUpdateLabel=null;if(S.isReading)setTimeout(enterPiP,600);});
+          const el=pw.document.getElementById('d-countdown');
+          if(el){
+            const m=Math.floor(S.pomodoroRemaining/60),s=S.pomodoroRemaining%60;
+            el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+          }
+        }catch(e){clearInterval(S._pipTimerInt)}
+      },1000);
+      pw.addEventListener('pagehide',()=>{
+        S.pipWindow=null;S.pipMode=null;
+        if(S._pipTimerInt){clearInterval(S._pipTimerInt);S._pipTimerInt=null;}
+        if(S.isReading)setTimeout(enterPiP,600);
+      });
       return;
     }catch(e){/* fall through to video PiP */}
   }
-  // Fallback: use video PiP with the main camera video element
+  // Fallback: canvas-based countdown via video PiP
   try{
-    await D.video.requestPictureInPicture();
-    S.pipMode='video';
-    D.video.addEventListener('leavepictureinpicture',()=>{
+    const cv=document.createElement('canvas');
+    cv.width=256;cv.height=256;
+    const ctx=cv.getContext('2d');
+    const drawCD=()=>{
+      ctx.clearRect(0,0,256,256);
+      const bg=ctx.createRadialGradient(128,128,10,128,128,180);
+      bg.addColorStop(0,'#1e1b4b');bg.addColorStop(1,'#0d0d1a');
+      ctx.fillStyle=bg;ctx.fillRect(0,0,256,256);
+      const m=Math.floor(S.pomodoroRemaining/60),s=S.pomodoroRemaining%60;
+      ctx.fillStyle='#e0e0e0';
+      ctx.font='56px "PingFang SC","Hiragino Sans GB",sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'),128,118);
+      ctx.fillStyle='rgba(255,255,255,.4)';
+      ctx.font='13px "PingFang SC","Hiragino Sans GB",sans-serif';
+      ctx.fillText('专注中',128,170);
+    };
+    drawCD();
+    const stream=cv.captureStream(1);
+    const pipVid=document.createElement('video');
+    pipVid.muted=true;pipVid.playsInline=true;
+    pipVid.srcObject=stream;pipVid.play();
+    pipVid.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(pipVid);
+    // Redraw every second
+    S._pipTimerInt=setInterval(drawCD,1000);
+    pipVid.addEventListener('leavepictureinpicture',()=>{
+      if(S._pipTimerInt){clearInterval(S._pipTimerInt);S._pipTimerInt=null;}
+      pipVid.remove();
       if(S.isReading)setTimeout(enterPiP,600);
-    },{once:true});
+    });
+    await pipVid.requestPictureInPicture();
+    S.pipMode='video';
   }catch(e){/* user declined or not supported */}
 }
 async function exitPiP(){
+  if(S._pipTimerInt){clearInterval(S._pipTimerInt);S._pipTimerInt=null;}
   if(S.pipMode==='document'&&S.pipWindow){
     try{S.pipWindow.close()}catch(e){}
-    S.pipWindow=null;S.pipMode=null;S._pipUpdateLabel=null;return;
+    S.pipWindow=null;S.pipMode=null;return;
   }
   if(document.pictureInPictureElement){
     try{await document.exitPictureInPicture()}catch(e){}
@@ -839,11 +899,7 @@ async function exitPiP(){
   S.pipMode=null;
 }
 function updatePiP(emoji,label,color){
-  S.pipLabel=label;
-  if(S.pipMode==='document'&&S._pipUpdateLabel){
-    try{S._pipUpdateLabel()}catch(e){}
-  }
-  // video PiP shows live camera, no update needed
+  // countdown PiP updates itself via interval, nothing needed here
 }
 
 /* ============================================================
@@ -952,6 +1008,8 @@ function startReading(){
   D.timerDisplay.textContent='--:--';
 
   updateCounts();
+  // Show self-view video
+  D.selfVideo.srcObject=S.cameraStream;D.selfVideo.play();D.selfVideoWrap.classList.add('active');
   startLoop();
   enterPiP();
 }
@@ -974,6 +1032,7 @@ function stopReading(){
   stopLoop();
   exitPiP();
   S.neutralBaseline=null;
+  D.selfVideoWrap.classList.remove('active');
 
   D.btnRead.textContent='▶ 开始专注';D.btnRead.className='start';
   D.actionSub.textContent='可以再次开始';
@@ -995,7 +1054,7 @@ function stopReading(){
   }
   S.sessionSeconds=0;S.curEmotion=null;
   updateTimer();updateCounts();
-  updatePiP('😐','等待开始','var(--dot-calm)');
+
 }
 
 /* ============================================================
