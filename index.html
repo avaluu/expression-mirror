@@ -42,6 +42,71 @@ body{
 }
 
 /* ============================================================
+   App Shell (sidebar + content)
+   ============================================================ */
+#app-shell{display:flex;flex:1;overflow:hidden}
+
+/* ============================================================
+   Sidebar (narrow icon bar, VS Code activity bar style)
+   ============================================================ */
+#sidebar{
+  width:52px;flex-shrink:0;
+  background:rgba(0,0,0,.2);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  align-items:center;padding:10px 0;
+  z-index:15;gap:2px;
+  transition:background var(--transition);
+}
+.nav-item{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;
+  color:var(--text-muted);font-size:18px;
+  border:none;background:transparent;
+  transition:all var(--transition);
+  font-family:var(--font-ui);
+  text-decoration:none;
+}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.nav-item.active{color:var(--accent);background:rgba(99,102,241,.12)}
+.nav-item.active::before{
+  content:'';position:absolute;left:0;top:8px;bottom:8px;
+  width:2.5px;background:var(--accent);border-radius:0 3px 3px 0;
+}
+.nav-item .nav-tip{
+  position:absolute;left:44px;top:50%;transform:translateY(-50%);
+  background:var(--bg-panel);color:var(--text);
+  font-size:11px;padding:5px 10px;border-radius:6px;
+  white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .2s;
+  border:1px solid var(--border);
+  z-index:25;
+}
+.nav-item:hover .nav-tip{opacity:1}
+.nav-spacer{flex:1}
+
+/* ============================================================
+   Content Area & Pages
+   ============================================================ */
+.content-area{flex:1;overflow:hidden;position:relative}
+.page{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease;
+  overflow-y:auto;
+}
+.page.active{opacity:1;pointer-events:auto}
+.page-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.page-head h4{font-size:15px;font-weight:600;letter-spacing:.5px}
+.page-body{flex:1;overflow-y:auto;padding:16px 20px}
+
+/* ============================================================
    Hidden video (offscreen, for MediaPipe only)
    ============================================================ */
 #video{
@@ -208,7 +273,7 @@ body{
    Status Dot (bottom-left corner)
    ============================================================ */
 #status-dot-wrap{
-  position:fixed;bottom:68px;left:16px;z-index:25;
+  position:fixed;bottom:68px;left:68px;z-index:25;
   display:none;align-items:center;gap:7px;
 }
 #status-dot-wrap.active{display:flex}
@@ -269,11 +334,11 @@ body{
 .s-card .s-card-compare{font-size:10px;color:var(--accent);margin-top:4px;font-style:italic}
 .s-encourage{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:18px;
-  font-size:14px;line-height:1.8;letter-spacing:.3px;
-  color:var(--text);font-style:italic;
+  border-radius:var(--radius-sm);padding:22px 20px;
+  font-size:15px;line-height:2;letter-spacing:.5px;
+  color:var(--text);
+  white-space:pre-line;
 }
-.s-encourage::before{content:'💬 ';font-style:normal}
 .s-timeline{max-height:180px;overflow-y:auto}
 .s-tl-item{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
 .s-tl-item:last-child{border-bottom:none}
@@ -320,26 +385,8 @@ body{
 .icon-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
 /* ============================================================
-   Panels
+   Settings & Diary shared styles
    ============================================================ */
-.panel-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;opacity:0;pointer-events:none;transition:opacity .3s}
-.panel-back.open{opacity:1;pointer-events:auto}
-.panel{
-  position:fixed;top:0;bottom:0;width:360px;max-width:90vw;
-  background:var(--bg-panel);z-index:55;
-  display:flex;flex-direction:column;
-  box-shadow:var(--shadow);
-  transition:transform .35s cubic-bezier(.4,0,.2,1),background var(--transition);
-  overflow:hidden;
-}
-.panel.left{left:0;transform:translateX(-100%)}
-.panel.right{right:0;transform:translateX(100%)}
-.panel.open{transform:translateX(0)}
-.panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
-.panel-head h4{font-size:15px;font-weight:600}
-.panel-head .close{width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px}
-.panel-head .close:hover{background:var(--danger);color:#fff}
-.panel-body{flex:1;overflow-y:auto;padding:16px 18px}
 .set-item{margin-bottom:18px}
 .set-item label{display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .set-item input[type=range]{width:100%;accent-color:var(--accent)}
@@ -363,7 +410,7 @@ body{
 .d-card{background:var(--bg);border-radius:var(--radius-sm);padding:13px;margin-bottom:10px;border:1px solid var(--border)}
 .d-card .d-date{font-size:11px;color:var(--text-muted);margin-bottom:4px}
 .d-card .d-summary{font-size:12px;margin-bottom:6px}
-.d-card .d-enc{font-size:11px;font-style:italic;color:var(--accent);margin-bottom:6px;line-height:1.4}
+.d-card .d-enc{font-size:11px;color:var(--text);margin-bottom:6px;line-height:1.5;opacity:.8}
 .d-card .d-btns{display:flex;gap:4px;flex-wrap:wrap}
 .d-card .d-btns button{padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:10px}
 .d-card .d-btns button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -380,6 +427,12 @@ body{
 .modal-box .m-btns button{padding:7px 16px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;font-size:12px;transition:all var(--transition)}
 .modal-box .m-btns button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 .modal-box .m-btns button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.m-narrative{
+  font-size:15px;line-height:2;letter-spacing:.5px;
+  color:var(--text);white-space:pre-line;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:18px 20px;
+}
 .tl-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .tl-item:last-child{border-bottom:none}
 .tl-item .tl-time{color:var(--text-muted);font-size:11px;white-space:nowrap;min-width:36px}
@@ -400,12 +453,15 @@ body{
   #soundbar{gap:3px;padding:6px 10px}
   .sound-btn{padding:3px 10px;font-size:10px}
   #status-bar{padding:0 8px;gap:6px;height:46px}
-  .panel{width:100vw;max-width:100vw}
+  #sidebar{width:42px;padding:8px 0}
+  .nav-item{width:32px;height:32px;font-size:16px;border-radius:8px}
   #stage-inner{gap:8px}
   #summary-scroll{padding:24px 16px}
   #emotion-curve{height:150px}
   .s-cards{grid-template-columns:repeat(3,1fr)}
-  #status-dot-wrap{bottom:56px;left:10px}
+  #status-dot-wrap{bottom:56px;left:58px}
+  .page-body{padding:12px 14px}
+  .page-head{padding:10px 14px}
 }
 </style>
 </head>
@@ -424,57 +480,128 @@ body{
   <span id="sound-vol-label">25%</span>
 </div>
 
-<!-- Main Stage -->
-<div id="main-stage">
-  <div id="stage-inner">
+<!-- App Shell: sidebar + content -->
+<div id="app-shell">
 
-    <!-- 3D Flip Card -->
-    <div id="flip-scene">
-      <div class="flip-card" id="flipCard">
-        <!-- Front: Pomodoro timer -->
-        <div class="flip-face flip-front">
-          <svg viewBox="0 0 280 280">
-            <circle id="progress-bg" cx="140" cy="140" r="135"/>
-            <circle id="progress-fill" cx="140" cy="140" r="135"/>
-          </svg>
-          <div id="front-content">
-            <div id="front-timer">25:00</div>
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <button class="nav-item active" data-page="focus" aria-label="专注">🎯<span class="nav-tip">专注</span></button>
+    <button class="nav-item" data-page="diary" aria-label="日记">📔<span class="nav-tip">日记</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item" data-page="settings" aria-label="设置">⚙️<span class="nav-tip">设置</span></button>
+  </nav>
+
+  <!-- Content Area -->
+  <div class="content-area">
+
+    <!-- Focus Page -->
+    <div class="page active" id="page-focus">
+    <div id="main-stage">
+      <div id="stage-inner">
+
+        <!-- 3D Flip Card -->
+        <div id="flip-scene">
+          <div class="flip-card" id="flipCard">
+            <!-- Front: Pomodoro timer -->
+            <div class="flip-face flip-front">
+              <svg viewBox="0 0 280 280">
+                <circle id="progress-bg" cx="140" cy="140" r="135"/>
+                <circle id="progress-fill" cx="140" cy="140" r="135"/>
+              </svg>
+              <div id="front-content">
+                <div id="front-timer">25:00</div>
+              </div>
+              <div id="front-status">等待开始</div>
+            </div>
+            <!-- Back: Camera mirror -->
+            <div class="flip-face flip-back">
+              <video id="flip-video" autoplay playsinline muted></video>
+              <div id="mood-glow"></div>
+              <div class="back-hint">正在陪伴你</div>
+            </div>
           </div>
-          <div id="front-status">等待开始</div>
         </div>
-        <!-- Back: Camera mirror -->
-        <div class="flip-face flip-back">
-          <video id="flip-video" autoplay playsinline muted></video>
-          <div id="mood-glow"></div>
-          <div class="back-hint">正在陪伴你</div>
+
+        <!-- Flip hint -->
+        <div id="flip-hint">点击圆环，看看自己</div>
+
+        <!-- Action info -->
+        <div id="action-info">
+          <div class="main-label" id="action-label" style="color:var(--dot-calm)">等待开始</div>
+          <div class="sub-label" id="action-sub">模型加载完成后点击开始专注</div>
+        </div>
+
+        <!-- Manual action buttons -->
+        <div id="manual-actions">
+          <button class="act-btn frown" id="btn-manual-frown">😤 好难</button>
+          <button class="act-btn smile" id="btn-manual-smile">🙂 懂了</button>
+          <button class="act-btn note" id="btn-manual-note">📝 写一句话</button>
+        </div>
+
+        <!-- Inline note input -->
+        <div id="note-input-row">
+          <input type="text" id="note-input" placeholder="写一句话…" maxlength="120">
+          <button id="note-confirm">确认</button>
+        </div>
+
+      </div>
+    </div>
+    </div><!-- /#page-focus -->
+
+    <!-- Diary Page -->
+    <div class="page" id="page-diary">
+      <div class="page-head"><h4>📔 专注日记</h4></div>
+      <div class="page-body" id="diary-scroll">
+        <div class="d-empty">还没有专注日记<br>开始你的第一次专注吧 ✨</div>
+      </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div class="page" id="page-settings">
+      <div class="page-head"><h4>⚙️ 设置</h4></div>
+      <div class="page-body">
+        <div class="set-item">
+          <label>专注时长（分钟）</label>
+          <select id="s-pomodoro">
+            <option value="15">15 分钟</option>
+            <option value="25" selected>25 分钟</option>
+            <option value="45">45 分钟</option>
+            <option value="60">60 分钟</option>
+          </select>
+        </div>
+        <div class="set-item">
+          <label>皱眉灵敏度</label>
+          <input type="range" id="s-frown-sens" min="0" max="100" value="50">
+          <div class="range-ends"><span>难触发</span><span>易触发</span></div>
+        </div>
+        <div class="set-item">
+          <label>微笑灵敏度</label>
+          <input type="range" id="s-smile-sens" min="0" max="100" value="50">
+          <div class="range-ends"><span>难触发</span><span>易触发</span></div>
+        </div>
+        <div class="set-item">
+          <label>防抖间隔</label>
+          <input type="range" id="s-debounce" min="10" max="100" value="30">
+          <div class="range-ends"><span>1秒</span><span>10秒</span></div>
+          <div class="range-val" id="debounce-val">3秒</div>
+        </div>
+        <div class="set-item">
+          <label>主题</label>
+          <div class="theme-row">
+            <div class="theme-opt sel" data-theme="dark"><div class="dot" style="background:#16162a"></div>暗夜</div>
+            <div class="theme-opt" data-theme="light"><div class="dot" style="background:#f5f5f0"></div>明亮</div>
+            <div class="theme-opt" data-theme="warm"><div class="dot" style="background:#2a1f18"></div>暖棕</div>
+          </div>
+        </div>
+        <div class="set-item">
+          <button id="btn-export-all">📤 导出全部日记 (JSON)</button>
+          <button id="btn-clear-all" style="margin-top:7px;color:var(--danger);border-color:var(--danger)">🗑 清除全部数据</button>
         </div>
       </div>
     </div>
 
-    <!-- Flip hint -->
-    <div id="flip-hint">点击圆环，看看自己</div>
-
-    <!-- Action info -->
-    <div id="action-info">
-      <div class="main-label" id="action-label" style="color:var(--dot-calm)">等待开始</div>
-      <div class="sub-label" id="action-sub">模型加载完成后点击开始专注</div>
-    </div>
-
-    <!-- Manual action buttons -->
-    <div id="manual-actions">
-      <button class="act-btn frown" id="btn-manual-frown">😤 好难</button>
-      <button class="act-btn smile" id="btn-manual-smile">🙂 懂了</button>
-      <button class="act-btn note" id="btn-manual-note">📝 写一句话</button>
-    </div>
-
-    <!-- Inline note input -->
-    <div id="note-input-row">
-      <input type="text" id="note-input" placeholder="写一句话…" maxlength="120">
-      <button id="note-confirm">确认</button>
-    </div>
-
-  </div>
-</div>
+  </div><!-- /.content-area -->
+</div><!-- /#app-shell -->
 
 <!-- Status dot -->
 <div id="status-dot-wrap">
@@ -487,14 +614,13 @@ body{
   <div id="summary-scroll">
     <h3 id="summary-title"></h3>
     <div class="s-date" id="summary-date"></div>
+    <div class="s-encourage" id="summary-encourage"></div>
     <div class="s-section-label">情绪曲线</div>
     <canvas id="emotion-curve"></canvas>
     <div id="emotion-curve-hint"></div>
     <div class="s-section-label">数据画像</div>
     <div class="s-cards" id="summary-cards"></div>
-    <div class="s-section-label">时间线</div>
-    <div class="s-timeline" id="summary-timeline"></div>
-    <div class="s-encourage" id="summary-encourage"></div>
+    <details style="margin-top:16px"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted);margin-bottom:4px">📋 查看时间线</summary><div class="s-timeline" id="summary-timeline"></div></details>
     <div class="s-actions">
       <button class="primary" id="s-btn-json">📥 导出 JSON</button>
       <button class="primary" id="s-btn-md">📥 导出 Markdown</button>
@@ -510,62 +636,6 @@ body{
   <span class="stat">⏱ <span id="timer">00:00</span></span>
   <span class="spacer"></span>
   <button id="btn-read" class="start">▶ 开始专注</button>
-  <button class="icon-btn" id="btn-diary">📔</button>
-  <button class="icon-btn" id="btn-settings">⚙️</button>
-</div>
-
-<!-- Settings Panel -->
-<div class="panel-back" id="settings-back"></div>
-<div class="panel left" id="settings-panel">
-  <div class="panel-head"><h4>⚙️ 设置</h4><button class="close" id="close-settings">✕</button></div>
-  <div class="panel-body">
-    <div class="set-item">
-      <label>专注时长（分钟）</label>
-      <select id="s-pomodoro">
-        <option value="15">15 分钟</option>
-        <option value="25" selected>25 分钟</option>
-        <option value="45">45 分钟</option>
-        <option value="60">60 分钟</option>
-      </select>
-    </div>
-    <div class="set-item">
-      <label>皱眉灵敏度</label>
-      <input type="range" id="s-frown-sens" min="0" max="100" value="50">
-      <div class="range-ends"><span>难触发</span><span>易触发</span></div>
-    </div>
-    <div class="set-item">
-      <label>微笑灵敏度</label>
-      <input type="range" id="s-smile-sens" min="0" max="100" value="50">
-      <div class="range-ends"><span>难触发</span><span>易触发</span></div>
-    </div>
-    <div class="set-item">
-      <label>防抖间隔</label>
-      <input type="range" id="s-debounce" min="10" max="100" value="30">
-      <div class="range-ends"><span>1秒</span><span>10秒</span></div>
-      <div class="range-val" id="debounce-val">3秒</div>
-    </div>
-    <div class="set-item">
-      <label>主题</label>
-      <div class="theme-row">
-        <div class="theme-opt sel" data-theme="dark"><div class="dot" style="background:#16162a"></div>暗夜</div>
-        <div class="theme-opt" data-theme="light"><div class="dot" style="background:#f5f5f0"></div>明亮</div>
-        <div class="theme-opt" data-theme="warm"><div class="dot" style="background:#2a1f18"></div>暖棕</div>
-      </div>
-    </div>
-    <div class="set-item">
-      <button id="btn-export-all">📤 导出全部日记 (JSON)</button>
-      <button id="btn-clear-all" style="margin-top:7px;color:var(--danger);border-color:var(--danger)">🗑 清除全部数据</button>
-    </div>
-  </div>
-</div>
-
-<!-- Diary Panel -->
-<div class="panel-back" id="diary-back"></div>
-<div class="panel right" id="diary-panel">
-  <div class="panel-head"><h4>📔 专注日记</h4><button class="close" id="close-diary">✕</button></div>
-  <div class="panel-body" id="diary-scroll">
-    <div class="d-empty">还没有专注日记<br>开始你的第一次专注吧 ✨</div>
-  </div>
 </div>
 
 <!-- Modal for diary detail -->
@@ -600,8 +670,6 @@ const D={
   emotionCurve:$('#emotion-curve'),emotionCurveHint:$('#emotion-curve-hint'),
   summaryCards:$('#summary-cards'),summaryTimeline:$('#summary-timeline'),
   summaryEncourage:$('#summary-encourage'),
-  settingsPanel:$('#settings-panel'),settingsBack:$('#settings-back'),
-  diaryPanel:$('#diary-panel'),diaryBack:$('#diary-back'),
   diaryScroll:$('#diary-scroll'),modalBack:$('#modal-back'),modalBox:$('#modal-box'),
   toast:$('#toast'),
 };
@@ -1161,12 +1229,12 @@ function stopReading(){
 function showSummary(diary){
   S._currentDiary=diary;
   const d=diary;
-  D.summaryTitle.textContent='这次专注，算法看到了这些…';
+  D.summaryTitle.textContent='你的阅读日记';
   D.summaryDate.textContent='📅 '+d.date+'  ·  ⏱ '+d.durationMinutes+' 分钟';
   drawEmotionCurve(d);
   renderSummaryCards(d);
   renderSummaryTimeline(d);
-  D.summaryEncourage.textContent=d.encouragementText;
+  D.summaryEncourage.textContent=d.narrative||d.encouragementText||'';
   $('#s-btn-json').onclick=()=>exportDiary(diary,'json');
   $('#s-btn-md').onclick=()=>exportDiary(diary,'md');
   $('#s-btn-close').onclick=closeSummary;
@@ -1303,7 +1371,13 @@ function compareText(prev,key,current,unit){
    ============================================================ */
 function renderSummaryTimeline(diary){
   const tl=diary.timeline||[];
-  if(!tl.length){D.summaryTimeline.innerHTML='';return}
+  const summaryEl=D.summaryTimeline.parentElement?.querySelector('summary');
+  if(!tl.length){
+    D.summaryTimeline.innerHTML='';
+    if(summaryEl)summaryEl.textContent='📋 暂无记录';
+    return;
+  }
+  if(summaryEl)summaryEl.textContent='📋 查看时间线（'+tl.length+' 条记录）';
   const emojis={smile:'🙂',frown:'😤',nod:'😌',shake:'🤔',note:'📝'};
   const labels={smile:'微笑',frown:'皱眉',nod:'点头',shake:'摇头',note:''};
   D.summaryTimeline.innerHTML=tl.map(e=>
@@ -1341,6 +1415,7 @@ function genDiary(mins){
     hardest={time:'第 '+maxW.start+' 分钟左右',density:maxW.count};
   }
   const enc=genEnc(frownCount,smileCount,nodCount,shakeCount,mins,hardest);
+  const narrative=genNarrative({date:fmt(new Date()),durationMinutes:mins,timeline:tl,emotionSamples:S.emotionSamples,frownCount,smileCount,nodCount,shakeCount,manualNotes,hardestPeriod:hardest});
   return{
     id:new Date().toISOString().replace(/[:.]/g,'-'),
     date:fmt(new Date()),timestamp:Date.now(),
@@ -1348,7 +1423,7 @@ function genDiary(mins){
     frownCount,smileCount,nodCount,shakeCount,
     manualNotes,hardestPeriod:hardest,
     timeline:tl,emotionSamples:S.emotionSamples,
-    encouragementText:enc,
+    encouragementText:enc,narrative,
   };
 }
 function genEnc(fc,sc,nc,shc,mins,hardest){
@@ -1367,6 +1442,128 @@ function genEnc(fc,sc,nc,shc,mins,hardest){
 }
 
 /* ============================================================
+   NARRATIVE DIARY GENERATION
+   Builds a coherent multi-paragraph narrative from diary data
+   ============================================================ */
+function genNarrative(d){
+  const{durationMinutes:mins,timeline:tl,emotionSamples:es,frownCount:fc,smileCount:sc,nodCount:nc,shakeCount:shc,manualNotes:notes,hardestPeriod:hardest,date}=d;
+  const pars=[];
+  const totalActs=fc+sc;
+  const frownRatio=totalActs>0?fc/totalActs:0;
+
+  // ── Opening: scene-setting ──
+  const dt=date.split(' '),day=dt[0],tm=dt[1];
+  const hour=parseInt((tm||'12').split(':')[0])||12;
+  const period=hour<6?'凌晨':hour<9?'清晨':hour<12?'上午':hour<14?'中午':hour<18?'下午':hour<21?'晚上':'深夜';
+  let open=`${day} ${period}，你花了 ${mins} 分钟沉浸在阅读中。`;
+  if(totalActs===0){
+    open+='全程几乎没有明显的表情变化——你很可能进入了深度专注的状态。心流是最珍贵的阅读体验，时间在不知不觉中流逝。';
+  }else if(frownRatio<0.3){
+    open+=`整段阅读以微笑为主（${sc}次），是一段轻松愉快的时光。这本书给了你不少惊喜。`;
+  }else if(frownRatio>0.7){
+    open+=`这段阅读充满挑战，你皱了 ${fc} 次眉，但你坚持了整整 ${mins} 分钟，没有放弃。这份毅力本身就了不起。`;
+  }else{
+    open+=`有困惑也有领悟——${fc} 次皱眉，${sc} 次微笑。这就是阅读最真实的样子：不总是轻松的，但每一分钟都值得。`;
+  }
+  pars.push(open);
+
+  // ── Emotional journey: phase analysis ──
+  if(es&&es.length>=2){
+    const n=es.length,third=Math.max(2,Math.ceil(n/3));
+    const phases=[
+      es.slice(0,third),
+      es.slice(third,third*2),
+      es.slice(third*2)
+    ].filter(p=>p.length>0);
+
+    if(phases.length>=2){
+      const pd=phases.map(p=>({
+        avgV:p.reduce((s,x)=>s+x.valence,0)/p.length,
+        frowns:p.reduce((s,x)=>s+x.frownCount,0),
+        smiles:p.reduce((s,x)=>s+x.smileCount,0),
+      }));
+
+      const labels=phases.length===2?['前半段','后半段']:['刚开始的几分钟','阅读进行到中段时','到了后半段'];
+      const parts=pd.map((p,i)=>{
+        let mood,det='';
+        if(p.avgV>0.4)mood='你读得很顺畅，频频微笑';
+        else if(p.avgV>0.1)mood='整体比较轻松';
+        else if(p.avgV>-0.1)mood='情绪平稳，专注投入';
+        else if(p.avgV>-0.4)mood='开始感到一些挑战';
+        else mood='这一段比较艰难，皱眉明显增多';
+        if(p.frowns>0&&p.smiles>0)det=`（皱眉${p.frowns}次，微笑${p.smiles}次）`;
+        else if(p.frowns>0)det=`（皱眉${p.frowns}次）`;
+        else if(p.smiles>0)det=`（微笑${p.smiles}次）`;
+        return labels[i]+'，'+mood+det;
+      });
+      let journey=parts.join('；')+'。';
+
+      const firstV=pd[0].avgV,lastV=pd[pd.length-1].avgV;
+      if(lastV-firstV>0.35)journey+='从最初的些许吃力到渐入佳境，你经历了一次真正的学习曲线——困惑终将让位于理解。';
+      else if(firstV-lastV>0.35)journey+='虽然越往后越有挑战，但你始终没有放弃。面对困难而不退缩，这比读懂任何一本书都更珍贵。';
+      else if(Math.abs(firstV)<=0.15&&Math.abs(lastV)<=0.15)journey+='整段阅读情绪非常平稳，这是一种高质量的专注状态。';
+      pars.push(journey);
+    }
+  }else if(tl&&tl.length>0){
+    // Fallback: no per-minute samples, describe from timeline
+    const half=Math.floor(mins/2);
+    const firstHalf=tl.filter(e=>{const[m2]=(e.time||'0:0').split(':').map(Number);return(m2||0)<half;});
+    const secondHalf=tl.filter(e=>{const[m2]=(e.time||'0:0').split(':').map(Number);return(m2||0)>=half;});
+    const fhF=firstHalf.filter(e=>e.type==='frown').length;
+    const fhS=firstHalf.filter(e=>e.type==='smile').length;
+    const shF=secondHalf.filter(e=>e.type==='frown').length;
+    const shS=secondHalf.filter(e=>e.type==='smile').length;
+    const fhV=(fhS-fhF)/Math.max(1,fhS+fhF);
+    const shV=(shS-shF)/Math.max(1,shS+shF);
+    if(shV-fhV>0.3)pars.push('前半段有些磕磕绊绊，但后半段你明显找到了节奏——阅读的乐趣在后来慢慢展现了出来。');
+    else if(fhV-shV>0.3)pars.push('一开始还算顺畅，后面难度上来了。但你坚持到了最后，这才是最重要的。');
+    else pars.push('整个阅读过程有起有伏，你始终保持了投入的状态。');
+  }
+
+  // ── Hardest moment ──
+  if(hardest&&hardest.time!=='—'&&hardest.density>=2){
+    pars.push(hardest.time+'是你最艰难的时刻，密集皱了 '+hardest.density+' 次眉。但你没有放下书，而是扛过了这一段。');
+  }
+
+  // ── Peak smile moment ──
+  if(sc>=3&&tl){
+    const smileByMin={};
+    for(const e of tl){
+      if(e.type==='smile'){
+        const[m3]=(e.time||'0:0').split(':').map(Number);
+        smileByMin[m3||0]=(smileByMin[m3||0]||0)+1;
+      }
+    }
+    const peak=Object.entries(smileByMin).sort((a,b)=>b[1]-a[1])[0];
+    if(peak&&peak[1]>=2){
+      pars.push('最开心的一刻出现在第 '+peak[0]+' 分钟左右，你连续微笑了 '+peak[1]+' 次——读到让自己会心一笑的内容，是阅读最美好的瞬间。');
+    }
+  }
+
+  // ── Manual notes ──
+  if(notes&&notes.length>0){
+    const qs=notes.map(n=>`"${n}"`).join('、');
+    pars.push('阅读中你记下了这样的话：'+qs+'。这些只言片语，折射出你当时最真实的感受。');
+  }
+
+  // ── Body language ──
+  if(nc>=2&&shc>=2)pars.push('你点了 '+nc+' 次头、摇了 '+shc+' 次头——阅读就是这样，有认同也有困惑，两者都是思考的痕迹。');
+  else if(nc>=3)pars.push('你点了 '+nc+' 次头，仿佛在跟作者隔空对话——这种沉浸感，是阅读独有的美妙体验。');
+  else if(shc>=3)pars.push('你摇了 '+shc+' 次头，遇到了让你反复推敲的地方。困惑不是障碍，它是深度理解的起点。');
+
+  // ── Closing ──
+  const cls=[];
+  if(fc>8&&mins>25)cls.push('面对困难的内容，你没有逃避。这种面对挑战的勇气，比效率本身更值得被记住。');
+  if(sc>fc&&sc>3)cls.push('阅读是快乐的——今天的你真切地感受到了这一点。希望下次翻开书时，依然有微笑等着你。');
+  if(fc===0&&sc===0&&mins>10)cls.push('这种纯粹的平静是难得的礼物。你与书融为了一体，世界安静了下来。');
+  if(mins>=45)cls.push(mins+' 分钟不是一个小数目。今天的自律，会成为明天的底气。');
+  if(!cls.length)cls.push('每一次翻页都是向前一步。无论今天的阅读体验如何，你都在成为更好的自己。');
+  pars.push(cls[Math.floor(Math.random()*cls.length)]);
+
+  return pars.filter(Boolean).join('\n\n');
+}
+
+/* ============================================================
    STORAGE
    ============================================================ */
 const KD='em4_d_v4',KC='em4_c_v4';
@@ -1378,7 +1575,7 @@ function exportDiary(diary,fmt){
   if(fmt==='json'){c=JSON.stringify(diary,null,2);fn='focus-'+diary.id+'.json';m='application/json';}
   else{
     const tl=(diary.timeline||[]).map(e=>'| '+e.time+' | '+(e.type==='frown'?'😤 皱眉':e.type==='smile'?'🙂 微笑':e.type==='nod'?'😌 点头':e.type==='shake'?'🤔 摇头':'📝 '+(e.text||''))+' |').join('\n');
-    c='# 📔 '+diary.date+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 😤 皱眉: '+diary.frownCount+' 次\n## 🙂 微笑: '+diary.smileCount+' 次\n\n## 📋 记录\n'+tl+'\n\n> '+diary.encouragementText+'\n';
+    c='# 📔 '+diary.date+'\n\n> '+(diary.narrative||diary.encouragementText||'')+'\n\n⏱ '+diary.durationMinutes+' 分钟\n\n## 😤 皱眉: '+diary.frownCount+' 次\n## 🙂 微笑: '+diary.smileCount+' 次\n\n## 📋 记录\n'+tl+'\n';
     fn='focus-'+diary.id+'.md';m='text/markdown';
   }
   const b=new Blob([c],{type:m}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();URL.revokeObjectURL(a.href);toast('📤 已导出 '+fmt.toUpperCase());
@@ -1399,12 +1596,18 @@ function clearAllData(){
 function updateTimer(){const m=Math.floor(S.sessionSeconds/60),s=S.sessionSeconds%60;D.timer.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function toast(msg){const t=D.toast;t.textContent=msg;t.classList.add('show');clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500)}
-function togglePanel(p,b){
-  const o=p.classList.contains('open');
-  $$('.panel.open').forEach(x=>x.classList.remove('open'));
-  $$('.panel-back.open').forEach(x=>x.classList.remove('open'));
-  if(!o){p.classList.add('open');b.classList.add('open')}
+/* ============================================================
+   PAGE SWITCHING
+   ============================================================ */
+function switchPage(pageName){
+  // Update sidebar nav
+  $$('.nav-item').forEach(item=>item.classList.toggle('active',item.dataset.page===pageName));
+  // Update page visibility
+  $$('.page').forEach(page=>page.classList.toggle('active',page.id==='page-'+pageName));
+  // If switching to diary, refresh the list
+  if(pageName==='diary')renderDiaryList();
 }
+function togglePanel(){/* removed */}
 
 /* ============================================================
    DIARY LIST
@@ -1414,7 +1617,8 @@ function renderDiaryList(){
   if(!l.length){c.innerHTML='<div class="d-empty">还没有专注日记<br>开始吧 ✨</div>';return}
   c.innerHTML=l.map(d=>{
     const notes=(d.manualNotes||[]).slice(0,2).map(n=>'📝 '+n).join('<br>');
-    return '<div class="d-card"><div class="d-date">📅 '+d.date+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | 😤 '+d.frownCount+' 次 | 🙂 '+d.smileCount+' 次'+(notes?'<br>'+notes:'')+'</div><div class="d-enc">💬 '+d.encouragementText+'</div><div class="d-btns"><button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>';
+    const narr=(d.narrative||d.encouragementText||'').slice(0,80)+(d.narrative&&d.narrative.length>80?'…':'');
+    return '<div class="d-card"><div class="d-date">📅 '+d.date+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | 😤 '+d.frownCount+' 次 | 🙂 '+d.smileCount+' 次'+(notes?'<br>'+notes:'')+'</div><div class="d-enc">'+narr+'</div><div class="d-btns"><button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>';
   }).join('');
   c.querySelectorAll('.view').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)showDetail(d)});
   c.querySelectorAll('.json').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'json')});
@@ -1424,7 +1628,7 @@ function renderDiaryList(){
 function showDetail(diary){
   const d=diary,b=D.modalBox,bk=D.modalBack;
   const tl=(d.timeline||[]).map(e=>'<div class="tl-item"><span class="tl-time">'+e.time+'</span> <span class="tl-icon">'+(e.type==='frown'?'😤':e.type==='smile'?'🙂':e.type==='nod'?'😌':e.type==='shake'?'🤔':'📝')+'</span> <span class="tl-text">'+(e.text||(e.type==='frown'?'皱眉':e.type==='smile'?'微笑':e.type==='nod'?'点头':e.type==='shake'?'摇头':'备注'))+'</span></div>').reverse().join('');
-  b.innerHTML='<h4>📔 '+d.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">⏱ '+d.durationMinutes+' 分钟 | 😤 皱眉 '+d.frownCount+' 次 | 🙂 微笑 '+d.smileCount+' 次</p><div class="tl-mini">'+tl+'</div><p style="font-size:12px;color:var(--accent);font-style:italic;margin-top:8px;">💬 '+d.encouragementText+'</p><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
+  b.innerHTML='<h4>📔 '+d.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+d.durationMinutes+' 分钟 | 😤 皱眉 '+d.frownCount+' 次 | 🙂 微笑 '+d.smileCount+' 次</p><div class="m-narrative">'+(d.narrative||d.encouragementText||'').replace(/\n\n/g,'</p><p>')+'</div><details style="margin-top:14px"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);margin-bottom:8px">📋 查看时间线 ('+tl.length+' 条记录)</summary><div class="tl-mini">'+tl+'</div></details><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
   bk.classList.add('open');
   $('#m-close').onclick=()=>bk.classList.remove('open');
   $('#m-json').onclick=()=>exportDiary(diary,'json');
@@ -1513,13 +1717,10 @@ function bindEvents(){
   D.noteConfirm.onclick=confirmNote;
   D.noteInput.onkeydown=e=>{if(e.key==='Enter')confirmNote();else if(e.key==='Escape')hideNoteInput()};
 
-  // Panels
-  $('#btn-diary').onclick=()=>{renderDiaryList();togglePanel(D.diaryPanel,D.diaryBack)};
-  $('#close-diary').onclick=()=>{D.diaryPanel.classList.remove('open');D.diaryBack.classList.remove('open')};
-  D.diaryBack.onclick=()=>{D.diaryPanel.classList.remove('open');D.diaryBack.classList.remove('open')};
-  $('#btn-settings').onclick=()=>togglePanel(D.settingsPanel,D.settingsBack);
-  $('#close-settings').onclick=()=>{D.settingsPanel.classList.remove('open');D.settingsBack.classList.remove('open')};
-  D.settingsBack.onclick=()=>{D.settingsPanel.classList.remove('open');D.settingsBack.classList.remove('open')};
+  // Sidebar navigation
+  $$('.nav-item').forEach(item=>{
+    item.onclick=()=>switchPage(item.dataset.page);
+  });
 
   // Settings inputs
   $('#s-frown-sens').oninput=e=>{S.settings.frownSens=+e.target.value;saveSettings()};
@@ -1537,8 +1738,6 @@ function bindEvents(){
   document.onkeydown=e=>{
     if(e.key==='Escape'){
       if(D.summaryOverlay.classList.contains('open')){closeSummary();return}
-      $$('.panel.open').forEach(p=>p.classList.remove('open'));
-      $$('.panel-back.open').forEach(b=>b.classList.remove('open'));
       D.modalBack.classList.remove('open');
       hideNoteInput();
     }
