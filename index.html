@@ -439,6 +439,38 @@ body{
 .tl-item .tl-icon{font-size:16px;min-width:22px;text-align:center}
 .tl-item .tl-text{flex:1}
 
+/* Letter styles */
+.letter-section{border-top:1px solid var(--border);padding-top:14px;margin-top:14px}
+.letter-status{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500}
+.letter-status.draft{background:rgba(255,255,255,.06);color:var(--text-muted);border:1px solid var(--border)}
+.letter-status.sent{background:rgba(99,102,241,.12);color:var(--accent);border:1px solid var(--accent)}
+.letter-status.replied{background:rgba(125,211,192,.12);color:var(--progress-stroke);border:1px solid var(--progress-stroke)}
+.letter-content{font-size:13px;line-height:1.8;color:var(--text);white-space:pre-line;margin:10px 0}
+.letter-reply{background:var(--bg);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:14px 16px;margin-top:10px}
+.letter-reply .reply-label{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:600}
+.letter-reply .reply-text{font-size:13px;line-height:1.8;color:var(--text);white-space:pre-line}
+.letter-reply .reply-time{font-size:10px;color:var(--text-muted);margin-top:6px}
+.letter-compose{background:var(--bg-card);border:2px dashed var(--border);border-radius:var(--radius-sm);padding:18px;transition:border-color var(--transition)}
+.letter-compose:focus-within{border-color:var(--accent)}
+.letter-compose textarea{width:100%;min-height:160px;background:transparent;border:none;color:var(--text);font-family:var(--font-ui);font-size:13px;line-height:1.8;resize:vertical;outline:none}
+.letter-compose textarea::placeholder{color:var(--text-muted)}
+.letter-compose .lc-hint{font-size:10px;color:var(--text-muted);text-align:right}
+.mailbox-item{background:var(--bg);border-radius:var(--radius-sm);padding:13px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer;transition:all var(--transition)}
+.mailbox-item:hover{border-color:var(--accent)}
+.mailbox-item .mb-icon{font-size:24px;flex-shrink:0}
+.mailbox-item .mb-info{flex:1;min-width:0}
+.mailbox-item .mb-date{font-size:10px;color:var(--text-muted)}
+.mailbox-item .mb-title{font-size:13px;font-weight:500;margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mailbox-item .mb-status{font-size:10px}
+.mailbox-item .mb-arrow{font-size:14px;color:var(--text-muted);flex-shrink:0}
+.d-card .d-letter-badge{display:none;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:500}
+.d-card .d-letter-badge.draft{border:1px solid var(--border);color:var(--text-muted);display:inline-block}
+.d-card .d-letter-badge.sent{border:1px solid var(--accent);color:var(--accent);display:inline-block}
+.d-card .d-letter-badge.replied{border:1px solid var(--progress-stroke);color:var(--progress-stroke);display:inline-block}
+.s-actions button.letter{background:var(--accent);color:#fff;border-color:var(--accent)}
+.set-item input[type=text]{width:100%;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--font-ui);outline:none;transition:border-color var(--transition)}
+.set-item input[type=text]:focus{border-color:var(--accent)}
+
 /* Toast */
 #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);padding:9px 22px;border-radius:20px;background:var(--bg-panel);color:var(--text);font-size:13px;box-shadow:var(--shadow);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;border:1px solid var(--border)}
 #toast.show{opacity:1}
@@ -487,6 +519,7 @@ body{
   <nav id="sidebar">
     <button class="nav-item active" data-page="focus" aria-label="专注">🎯<span class="nav-tip">专注</span></button>
     <button class="nav-item" data-page="diary" aria-label="日记">📔<span class="nav-tip">日记</span></button>
+    <button class="nav-item" data-page="mailbox" aria-label="信箱">✉️<span class="nav-tip">信箱</span></button>
     <div class="nav-spacer"></div>
     <button class="nav-item" data-page="settings" aria-label="设置">⚙️<span class="nav-tip">设置</span></button>
   </nav>
@@ -556,6 +589,14 @@ body{
       </div>
     </div>
 
+    <!-- Mailbox Page -->
+    <div class="page" id="page-mailbox">
+      <div class="page-head"><h4>✉️ 信箱</h4></div>
+      <div class="page-body" id="mailbox-scroll">
+        <div class="d-empty">还没有写过信<br>完成一次专注后，开始写信吧 ✨</div>
+      </div>
+    </div>
+
     <!-- Settings Page -->
     <div class="page" id="page-settings">
       <div class="page-head"><h4>⚙️ 设置</h4></div>
@@ -594,6 +635,10 @@ body{
           </div>
         </div>
         <div class="set-item">
+          <label>✉️ 信箱 API 地址（可选）</label>
+          <input type="text" id="s-api-endpoint" placeholder="https://your-backend.com/api/letters">
+        </div>
+        <div class="set-item">
           <button id="btn-export-all">📤 导出全部日记 (JSON)</button>
           <button id="btn-clear-all" style="margin-top:7px;color:var(--danger);border-color:var(--danger)">🗑 清除全部数据</button>
         </div>
@@ -625,6 +670,7 @@ body{
       <button class="primary" id="s-btn-json">📥 导出 JSON</button>
       <button class="primary" id="s-btn-md">📥 导出 Markdown</button>
       <button id="s-btn-close">↩ 返回</button>
+      <button id="s-btn-letter" class="letter">✉️ 写信</button>
     </div>
   </div>
 </div>
@@ -685,13 +731,15 @@ const S={
   curEmotion:null,
   fl:null,cameraStream:null,
   visible:true,
-  settings:{frownSens:50,smileSens:50,debounceMs:3000,theme:'dark',pomodoroMin:25,soundVol:25,soundType:'rain'},
+  settings:{frownSens:50,smileSens:50,debounceMs:3000,theme:'dark',pomodoroMin:25,soundVol:25,soundType:'rain',apiEndpoint:''},
   recentFrown:0,recentSmile:0,
   neutralBaseline:null,
   calibrating:false,_calSamples:[],_calTarget:36,
   emotionSamples:[],_lastSampleMinute:-1,
   headPoseHistory:[],
   _currentDiary:null,
+  _currentLetterDiaryId:null,
+  _letterUploading:false,
   // Flip state
   isFlipped:false,
   // PiP countdown timer
@@ -1238,6 +1286,17 @@ function showSummary(diary){
   $('#s-btn-json').onclick=()=>exportDiary(diary,'json');
   $('#s-btn-md').onclick=()=>exportDiary(diary,'md');
   $('#s-btn-close').onclick=closeSummary;
+  // Letter button
+  const existingLetter=getLetterByDiaryId(diary.id);
+  const lBtn=$('#s-btn-letter');
+  if(existingLetter){
+    const statusLabels={draft:'草稿',sent:'已发送，等待回信',replied:'已收到回信'};
+    lBtn.textContent='✉️ 查看信件 ('+(statusLabels[existingLetter.status]||'')+')';
+    lBtn.onclick=()=>{closeSummary();showLetterModal(existingLetter)};
+  }else{
+    lBtn.textContent='✉️ 写信';
+    lBtn.onclick=()=>{closeSummary();openLetterCompose(diary.id,diary.date)};
+  }
   D.summaryOverlay.onclick=e=>{if(e.target===D.summaryOverlay)closeSummary();};
   D.summaryOverlay.classList.add('open');
   document.body.style.overflow='hidden';
@@ -1566,7 +1625,7 @@ function genNarrative(d){
 /* ============================================================
    STORAGE
    ============================================================ */
-const KD='em4_d_v4',KC='em4_c_v4';
+const KD='em4_d_v4',KC='em4_c_v4',KL='em4_l_v1';
 function saveDiary(d){const l=loadDiaries();l.unshift(d);try{localStorage.setItem(KD,JSON.stringify(l))}catch(e){l.pop();localStorage.setItem(KD,JSON.stringify(l));toast('⚠️ 存储空间不足')}}
 function loadDiaries(){try{return JSON.parse(localStorage.getItem(KD))||[]}catch(e){return[]}}
 function deleteDiary(id){localStorage.setItem(KD,JSON.stringify(loadDiaries().filter(d=>d.id!==id)));renderDiaryList();toast('🗑 已删除')}
@@ -1591,10 +1650,25 @@ function clearAllData(){
 }
 
 /* ============================================================
+   LETTERS STORAGE
+   ============================================================ */
+function loadLetters(){try{return JSON.parse(localStorage.getItem(KL))||[]}catch(e){return[]}}
+function saveLetters(l){try{localStorage.setItem(KL,JSON.stringify(l))}catch(e){toast('⚠️ 存储空间不足')}}
+function saveLetter(letter){
+  const l=loadLetters();
+  const ix=l.findIndex(x=>x.id===letter.id);
+  if(ix>=0)l[ix]=letter;else l.unshift(letter);
+  saveLetters(l);
+}
+function deleteLetter(id){saveLetters(loadLetters().filter(l=>l.id!==id));renderMailbox();toast('🗑 已删除')}
+function getLetterByDiaryId(diaryId){return loadLetters().find(l=>l.diaryId===diaryId)||null}
+
+/* ============================================================
    UI HELPERS
    ============================================================ */
 function updateTimer(){const m=Math.floor(S.sessionSeconds/60),s=S.sessionSeconds%60;D.timer.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function escHtml(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 function toast(msg){const t=D.toast;t.textContent=msg;t.classList.add('show');clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500)}
 /* ============================================================
    PAGE SWITCHING
@@ -1606,6 +1680,8 @@ function switchPage(pageName){
   $$('.page').forEach(page=>page.classList.toggle('active',page.id==='page-'+pageName));
   // If switching to diary, refresh the list
   if(pageName==='diary')renderDiaryList();
+  // If switching to mailbox, refresh the list
+  if(pageName==='mailbox')renderMailbox();
 }
 function togglePanel(){/* removed */}
 
@@ -1613,27 +1689,43 @@ function togglePanel(){/* removed */}
    DIARY LIST
    ============================================================ */
 function renderDiaryList(){
-  const l=loadDiaries(),c=D.diaryScroll;
+  const l=loadDiaries(),c=D.diaryScroll,letters=loadLetters();
   if(!l.length){c.innerHTML='<div class="d-empty">还没有专注日记<br>开始吧 ✨</div>';return}
   c.innerHTML=l.map(d=>{
     const notes=(d.manualNotes||[]).slice(0,2).map(n=>'📝 '+n).join('<br>');
     const narr=(d.narrative||d.encouragementText||'').slice(0,80)+(d.narrative&&d.narrative.length>80?'…':'');
-    return '<div class="d-card"><div class="d-date">📅 '+d.date+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | 😤 '+d.frownCount+' 次 | 🙂 '+d.smileCount+' 次'+(notes?'<br>'+notes:'')+'</div><div class="d-enc">'+narr+'</div><div class="d-btns"><button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>';
+    const lt=letters.find(x=>x.diaryId===d.id);
+    const ltBadge=lt?'<span class="d-letter-badge '+lt.status+'">'+(lt.status==='draft'?'💾 草稿':lt.status==='sent'?'📤':'📬 已回复')+'</span>':'';
+    const ltBtn=lt?'<button class="letter-view" data-id="'+d.id+'">✉️ '+(lt.status==='draft'?'草稿':lt.status==='sent'?'查看':'回信')+'</button>':'';
+    return '<div class="d-card"><div class="d-date">📅 '+d.date+ltBadge+'</div><div class="d-summary">⏱ '+d.durationMinutes+' 分钟 | 😤 '+d.frownCount+' 次 | 🙂 '+d.smileCount+' 次'+(notes?'<br>'+notes:'')+'</div><div class="d-enc">'+narr+'</div><div class="d-btns">'+ltBtn+'<button class="view" data-id="'+d.id+'">📋 详情</button><button class="json" data-id="'+d.id+'">JSON</button><button class="md" data-id="'+d.id+'">MD</button><button class="del" data-id="'+d.id+'">🗑</button></div></div>';
   }).join('');
   c.querySelectorAll('.view').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)showDetail(d)});
   c.querySelectorAll('.json').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'json')});
   c.querySelectorAll('.md').forEach(b=>b.onclick=()=>{const d=l.find(x=>x.id===b.dataset.id);if(d)exportDiary(d,'md')});
   c.querySelectorAll('.del').forEach(b=>b.onclick=()=>{if(confirm('删除？'))deleteDiary(b.dataset.id)});
+  c.querySelectorAll('.letter-view').forEach(b=>b.onclick=()=>{const lt2=loadLetters().find(x=>x.diaryId===b.dataset.id);if(lt2)showLetterModal(lt2)});
 }
 function showDetail(diary){
   const d=diary,b=D.modalBox,bk=D.modalBack;
   const tl=(d.timeline||[]).map(e=>'<div class="tl-item"><span class="tl-time">'+e.time+'</span> <span class="tl-icon">'+(e.type==='frown'?'😤':e.type==='smile'?'🙂':e.type==='nod'?'😌':e.type==='shake'?'🤔':'📝')+'</span> <span class="tl-text">'+(e.text||(e.type==='frown'?'皱眉':e.type==='smile'?'微笑':e.type==='nod'?'点头':e.type==='shake'?'摇头':'备注'))+'</span></div>').reverse().join('');
-  b.innerHTML='<h4>📔 '+d.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+d.durationMinutes+' 分钟 | 😤 皱眉 '+d.frownCount+' 次 | 🙂 微笑 '+d.smileCount+' 次</p><div class="m-narrative">'+(d.narrative||d.encouragementText||'').replace(/\n\n/g,'</p><p>')+'</div><details style="margin-top:14px"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);margin-bottom:8px">📋 查看时间线 ('+tl.length+' 条记录)</summary><div class="tl-mini">'+tl+'</div></details><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
+  const lForD=getLetterByDiaryId(d.id);
+  let letterSec='';
+  if(lForD){
+    letterSec='<div class="letter-section">'
+      +'<span class="letter-status '+lForD.status+'">'+(lForD.status==='draft'?'💾 草稿':lForD.status==='sent'?'📤 已发送 · 等待回信':'📬 已收到回信')+'</span>'
+      +'<div class="letter-content">'+escHtml(lForD.content.slice(0,200)+(lForD.content.length>200?'…':''))+'</div>';
+    if(lForD.reply){
+      letterSec+='<div class="letter-reply"><div class="reply-label">✉️ 回信</div><div class="reply-text">'+escHtml(lForD.reply.slice(0,300))+'</div></div>';
+    }
+    letterSec+='<button class="act-btn" id="m-letter-open" style="margin-top:8px">✉️ 查看完整信件</button></div>';
+  }
+  b.innerHTML='<h4>📔 '+d.date+'</h4><p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">⏱ '+d.durationMinutes+' 分钟 | 😤 皱眉 '+d.frownCount+' 次 | 🙂 微笑 '+d.smileCount+' 次</p><div class="m-narrative">'+(d.narrative||d.encouragementText||'').replace(/\n\n/g,'</p><p>')+'</div>'+letterSec+'<details style="margin-top:14px"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);margin-bottom:8px">📋 查看时间线 ('+tl.length+' 条记录)</summary><div class="tl-mini">'+tl+'</div></details><div class="m-btns"><button class="primary" id="m-json">📥 JSON</button><button class="primary" id="m-md">📥 MD</button><button id="m-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button><button id="m-close">关闭</button></div>';
   bk.classList.add('open');
   $('#m-close').onclick=()=>bk.classList.remove('open');
   $('#m-json').onclick=()=>exportDiary(diary,'json');
   $('#m-md').onclick=()=>exportDiary(diary,'md');
   $('#m-del').onclick=()=>{if(confirm('删除？')){deleteDiary(diary.id);bk.classList.remove('open')}};
+  if(lForD){$('#m-letter-open').onclick=()=>{bk.classList.remove('open');showLetterModal(lForD)};}
   bk.onclick=e=>{if(e.target===bk)bk.classList.remove('open')};
 }
 
@@ -1647,6 +1739,174 @@ function confirmNote(){
   if(!text)return;
   recordAction('note',text);
   hideNoteInput();
+}
+
+/* ============================================================
+   LETTER FUNCTIONS
+   ============================================================ */
+function openLetterCompose(diaryId,diaryDate){
+  S._currentLetterDiaryId=diaryId;
+  const b=D.modalBox,bk=D.modalBack;
+
+  b.innerHTML='<h4>✉️ 给这次专注写一封信</h4>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-bottom:12px">'
+    +'这是对 '+diaryDate+' 的专注日记的回信</p>'
+    +'<div class="letter-compose">'
+    +'<textarea id="letter-textarea" placeholder="写下你的感受、想法、或者任何想说的话……"></textarea>'
+    +'<div class="lc-hint" id="letter-char-count">0 / 2000</div>'
+    +'</div>'
+    +'<div class="m-btns">'
+    +'<button class="primary" id="m-letter-send">📤 发送</button>'
+    +'<button id="m-letter-save">💾 保存草稿</button>'
+    +'<button id="m-letter-cancel">取消</button>'
+    +'</div>';
+
+  bk.classList.add('open');
+  const ta=$('#letter-textarea');
+  ta.focus();
+  ta.oninput=()=>{$('#letter-char-count').textContent=(ta.value.length+' / 2000')};
+  $('#m-letter-save').onclick=()=>{const text=ta.value.trim();if(!text){toast('写点什么吧');return}savedraftLetter(diaryId,diaryDate,text);bk.classList.remove('open')};
+  $('#m-letter-send').onclick=()=>{const text=ta.value.trim();if(!text){toast('写点什么吧');return}sendLetter(diaryId,diaryDate,text);bk.classList.remove('open')};
+  $('#m-letter-cancel').onclick=()=>{bk.classList.remove('open')};
+  bk.onclick=e=>{if(e.target===bk)bk.classList.remove('open')};
+}
+
+function savedraftLetter(diaryId,diaryDate,content){
+  const letter={
+    id:Date.now()+'-'+diaryId,
+    diaryId,diaryDate,
+    content,
+    status:'draft',
+    createdAt:Date.now(),
+    sentAt:null,
+    reply:null,
+    repliedAt:null,
+  };
+  saveLetter(letter);
+  toast('💾 草稿已保存');
+  if(document.getElementById('page-mailbox').classList.contains('active'))renderMailbox();
+}
+
+async function sendLetter(diaryId,diaryDate,content){
+  const letter={
+    id:Date.now()+'-'+diaryId,
+    diaryId,diaryDate,
+    content,
+    status:'sent',
+    createdAt:Date.now(),
+    sentAt:Date.now(),
+    reply:null,
+    repliedAt:null,
+  };
+  saveLetter(letter);
+
+  const ep=S.settings.apiEndpoint;
+  if(ep){
+    S._letterUploading=true;
+    try{
+      const resp=await fetch(ep,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({diaryId,content,timestamp:letter.createdAt}),
+      });
+      if(resp.ok){
+        const data=await resp.json().catch(()=>null);
+        if(data&&data.reply){
+          letter.reply=data.reply;
+          letter.repliedAt=Date.now();
+          letter.status='replied';
+          saveLetter(letter);
+          toast('📬 已收到回信！');
+          return;
+        }
+      }
+    }catch(e){console.warn('Letter upload failed, saved locally:',e)}
+    S._letterUploading=false;
+  }
+  toast('📤 信件已发送'+(ep?'':'（本地保存）'));
+  if(document.getElementById('page-mailbox').classList.contains('active'))renderMailbox();
+}
+
+function showLetterModal(letter){
+  const b=D.modalBox,bk=D.modalBack;
+  const statusLabels={draft:'💾 草稿',sent:'📤 已发送 · 等待回信',replied:'📬 已回复'};
+  const statusClass='letter-status '+letter.status;
+
+  let replyHTML='';
+  if(letter.reply){
+    replyHTML='<div class="letter-reply">'
+      +'<div class="reply-label">✉️ 回信</div>'
+      +'<div class="reply-text">'+escHtml(letter.reply)+'</div>'
+      +(letter.repliedAt?'<div class="reply-time">'+fmt(new Date(letter.repliedAt))+'</div>':'')
+      +'</div>';
+  }
+
+  b.innerHTML='<h4>✉️ 你的信</h4>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-bottom:10px">'
+    +'写于 '+letter.diaryDate+' · <span class="'+statusClass+'">'+statusLabels[letter.status]+'</span></p>'
+    +'<div class="letter-content">'+escHtml(letter.content)+'</div>'
+    +replyHTML
+    +'<div class="m-btns">'
+    +(letter.status==='draft'?'<button id="m-letter-edit">✏️ 继续编辑</button><button class="primary" id="m-letter-send-now">📤 现在发送</button>':'')
+    +'<button id="m-letter-del" style="color:var(--danger);border-color:var(--danger)">🗑 删除</button>'
+    +'<button id="m-letter-close">关闭</button>'
+    +'</div>';
+
+  bk.classList.add('open');
+  $('#m-letter-close').onclick=()=>bk.classList.remove('open');
+  $('#m-letter-del').onclick=()=>{if(confirm('删除？')){deleteLetter(letter.id);bk.classList.remove('open')}};
+  if(letter.status==='draft'){
+    $('#m-letter-edit').onclick=()=>{bk.classList.remove('open');editLetter(letter)};
+    $('#m-letter-send-now').onclick=()=>{letter.status='sent';letter.sentAt=Date.now();saveLetter(letter);bk.classList.remove('open');toast('📤 信件已发送');if(document.getElementById('page-mailbox').classList.contains('active'))renderMailbox()};
+  }
+  bk.onclick=e=>{if(e.target===bk)bk.classList.remove('open')};
+}
+
+function editLetter(letter){
+  const b=D.modalBox,bk=D.modalBack;
+  b.innerHTML='<h4>✏️ 编辑信件</h4>'
+    +'<p style="font-size:11px;color:var(--text-muted);margin-bottom:12px">修改你的信</p>'
+    +'<div class="letter-compose">'
+    +'<textarea id="letter-textarea">'+escHtml(letter.content)+'</textarea>'
+    +'<div class="lc-hint" id="letter-char-count">'+letter.content.length+' / 2000</div>'
+    +'</div>'
+    +'<div class="m-btns">'
+    +'<button class="primary" id="m-letter-send">📤 发送</button>'
+    +'<button id="m-letter-save">💾 保存草稿</button>'
+    +'<button id="m-letter-cancel">取消</button>'
+    +'</div>';
+  bk.classList.add('open');
+  const ta=$('#letter-textarea');
+  ta.focus();
+  ta.oninput=()=>{$('#letter-char-count').textContent=(ta.value.length+' / 2000')};
+  $('#m-letter-save').onclick=()=>{letter.content=ta.value.trim();saveLetter(letter);toast('💾 草稿已更新');bk.classList.remove('open');if(document.getElementById('page-mailbox').classList.contains('active'))renderMailbox()};
+  $('#m-letter-send').onclick=()=>{letter.content=ta.value.trim();letter.status='sent';letter.sentAt=Date.now();saveLetter(letter);bk.classList.remove('open');toast('📤 信件已发送');if(document.getElementById('page-mailbox').classList.contains('active'))renderMailbox()};
+  $('#m-letter-cancel').onclick=()=>{bk.classList.remove('open')};
+  bk.onclick=e=>{if(e.target===bk)bk.classList.remove('open')};
+}
+
+function renderMailbox(){
+  const l=loadLetters(),c=$('#mailbox-scroll');
+  if(!l.length){c.innerHTML='<div class="d-empty">还没有写过信<br>完成一次专注后，开始写信吧 ✨</div>';return}
+  const statusBadges={draft:'💾 草稿',sent:'📤 已发送',replied:'📬 已回复'};
+  c.innerHTML=l.map(lt=>{
+    const preview=(lt.content||'').slice(0,60)+(lt.content&&lt.content.length>60?'…':'');
+    return '<div class="mailbox-item" data-id="'+lt.id+'">'
+      +'<div class="mb-icon">✉️</div>'
+      +'<div class="mb-info">'
+      +'<div class="mb-date">📅 '+lt.diaryDate+'</div>'
+      +'<div class="mb-title">'+escHtml(preview||'(空白)')+'</div>'
+      +'<div class="mb-status" style="color:var(--text-muted)">'+statusBadges[lt.status]+'</div>'
+      +'</div>'
+      +'<div class="mb-arrow">›</div>'
+      +'</div>';
+  }).join('');
+  c.querySelectorAll('.mailbox-item').forEach(item=>{
+    item.onclick=()=>{
+      const letter=l.find(x=>x.id===item.dataset.id);
+      if(letter)showLetterModal(letter);
+    };
+  });
 }
 
 /* ============================================================
@@ -1674,6 +1934,8 @@ function applySettings(){
   $('#sound-vol-label').textContent=s.soundVol+'%';
   $$('.sound-btn').forEach(b=>b.classList.toggle('active',b.dataset.sound===s.soundType));
   updateNoiseVolume();
+  // API endpoint
+  $('#s-api-endpoint').value=s.apiEndpoint||'';
 }
 
 /* ============================================================
@@ -1730,6 +1992,7 @@ function bindEvents(){
   $$('.theme-opt').forEach(o=>o.onclick=()=>{S.settings.theme=o.dataset.theme;saveSettings();applySettings()});
   $('#btn-export-all').onclick=exportAllDiaries;
   $('#btn-clear-all').onclick=clearAllData;
+  $('#s-api-endpoint').oninput=e=>{S.settings.apiEndpoint=e.target.value.trim();saveSettings()};
 
   // Summary close
   D.summaryOverlay.addEventListener('click',function(e){if(e.target===this)closeSummary()});
